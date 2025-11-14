@@ -1,7 +1,7 @@
 # Final Project
 **Westmont College Fall 2025**
 
-**CS 125 Datbase Design**
+**CS 125 Database Design**
 
 *Assistant Professor* Mike Ryu (mryu@westmont.edu) 
 

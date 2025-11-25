@@ -26,3 +26,6 @@
 - Change date-specific small-group info (for example, notes that were taken and attendance that day)
 - Change attendance after the day it’s recorded
 - Delete past information (events, attendance)
+
+
+Using Python, we create a connection to our database in Insomnia, and then create a cursor, and by entering in the SQL commands as a string, we can execute any SQL query we want, but we then have to gather and print the results afterwards. However, this means that we can sort all of our data by any metric we want, and get as specific as we need to. Lastly, both the cursor and connection need to be closed so that resources aren't wasted keeping them open for no reason.

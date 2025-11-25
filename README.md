@@ -29,3 +29,12 @@
 
 
 Using Python, we create a connection to our database in Insomnia, and then create a cursor, and by entering in the SQL commands as a string, we can execute any SQL query we want, but we then have to gather and print the results afterwards. However, this means that we can sort all of our data by any metric we want, and get as specific as we need to. Lastly, both the cursor and connection need to be closed so that resources aren't wasted keeping them open for no reason.
+
+To spin up the server:
+- Start the existing MySQL container: docker start mysql-cs125
+- Load the database schema and data (only needed the first time or after resetting the database):
+      -  docker exec -i mysql-cs125 mysql -u root -pcs125 youth_group < schema.sql
+      -  docker exec -i mysql-cs125 mysql -u root -pcs125 youth_group < data.sql
+- Start the API: python3 executor.py
+- Use Insomnia to test the server: GET request http://127.0.0.1:5000/students
+

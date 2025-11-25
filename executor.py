@@ -6,7 +6,7 @@ from mysql.connector import errorcode
 DB_USER = "root"
 DB_PASSWORD = "<YOUR PASSWORD HERE>"
 DB_HOST = "127.0.0.1"
-DB_NAME = "Bakery2_Temp"
+DB_NAME = "youth_group"
 
 
 def main():
@@ -27,14 +27,19 @@ def main():
         cursor = cnx.cursor()
 
         # Execute a query
-        query = "SELECT id, firstName, lastName FROM Customer ORDER BY lastName, firstName LIMIT 5;"
+        query = """
+            SELECT studentID, firstName, lastName 
+            FROM Student
+            ORDER BY lastName, firstName
+            LIMIT 5;
+        """
         cursor.execute(query)
 
         # Fetch and print the results
-        print("\nFirst 5 customers:")
-        for (id, firstName, lastName) in cursor.fetchall():
-            print(f"  - [ID: {id}] {firstName} {lastName}")
-
+        print("\nFirst 5 students:")
+        for (studentID, firstName, lastName) in cursor.fetchall():
+            print(f"  - [ID: {studentID}] {firstName} {lastName}")
+    
         # Close the cursor and connection
         cursor.close()
         cnx.close()

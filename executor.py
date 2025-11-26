@@ -41,5 +41,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
 if __name__ == "__main__":
+    print("Server running at http://127.0.0.1:5000")
     server = http.server.HTTPServer(("127.0.0.1", 5000), Handler)
     server.serve_forever()

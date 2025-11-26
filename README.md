@@ -38,3 +38,6 @@ To spin up the server:
 - Start the API: python3 executor.py
 - Use Insomnia to test the server: GET request http://127.0.0.1:5000/students
 
+In browser:
+- http://127.0.0.1:5000/ returns all table names
+- http://127.0.0.1:5000/<table_name> returns rows from specific table

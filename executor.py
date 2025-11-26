@@ -1,12 +1,16 @@
 import http.server
 import json
 import mysql.connector
+from dotenv import load_dotenv
+import os
 
-DB_USER = "root"
-DB_PASSWORD = "cs125"
-DB_HOST = "127.0.0.1"
-DB_PORT = 3306
-DB_NAME = "youth_group"
+load_dotenv()
+
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = int(os.getenv("DB_PORT"))
+DB_NAME = os.getenv("DB_NAME")
 
 def list_tables():
     cnx = mysql.connector.connect(

@@ -71,7 +71,7 @@ CREATE TABLE Leader
     lastName    VARCHAR(30) NOT NULL,
     phoneNumber VARCHAR(20),
     email       VARCHAR(60),
-    groupID     INT UNIQUE  NOT NULL,
+    groupID     INT         NOT NULL,
     PRIMARY KEY (leaderID),
     FOREIGN KEY (groupID) REFERENCES SmallGroup (groupID)
 );

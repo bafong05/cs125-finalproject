@@ -124,6 +124,11 @@ class Event(BaseModel):
     date: datetime
     time: datetime
 
+class Registration(BaseModel):
+    studentID: int
+    eventID: int
+
+
 # --- Pydantic Model for the Combined "Trifecta" Endpoint ---
 class ProductOfTheDay(BaseModel):
     deal_details: DailyDeal
@@ -214,28 +219,31 @@ def get_product_reviews(product_id: str):
 @app.get("/products/daily-deal", response_model=DailyDeal)
 def get_daily_deal():
     """
-    Retrieves the daily deal from Redis and MySQL.
-    This demonstrates a caching pattern where Redis holds the deal ID
+    Retrieves the current event from Redis and MySQL.
+    This demonstrates a caching pattern where Redis holds the event ID
     and MySQL holds the full product details.
+
+    Need to change the setup slightly. Create a function that can check in and a function
+    that can check out people using the commands in ExecutableFile.py, then revise this
+    function so that it uses the other command mentioned in ExecutableFile.py.
     """
     try:
-        # 1. Fetch the deal from Redis
+        # 1. Fetch the event from Redis
         r = get_redis_conn()
-        deal_key = "current_event"
-        deal_info = r.hgetall(deal_key)
+        current_event_key = "current_event"
+        current_event_info = r.hgetall(current_event_key)
 
-        if not deal_info:
-            raise HTTPException(status_code=404, detail="No daily deal found today!")
+        if not current_event_info:
+            raise HTTPException(status_code=404, detail="Attendance not found")
 
-        product_id = deal_info['product_id']
-        discount_percent = int(deal_info['discount_percent'])
+        event_id = current_event_info['event_id']
 
         # 2. Fetch product details from MySQL
         cnx = get_db_connection()
         cursor = cnx.cursor(dictionary=True)
-        query = "SELECT id, flavor, kind, price FROM Product WHERE id = %s;"
-        cursor.execute(query, (product_id,))
-        product_data = cursor.fetchone()
+        query = "SELECT studentID FROM Attendance WHERE eventID = %s;"
+        cursor.execute(query, (event_id,))
+        product_data = cursor.fetchall()
 
         if not product_data:
             raise HTTPException(status_code=404, detail=f"Daily deal product (ID: {product_id}) not found in database.")

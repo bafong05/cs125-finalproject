@@ -11,20 +11,20 @@ def setup_redis_data():
         # Define the event data
         current_event_key = "current_event"
         event_id = 1001  # Winter Retreat
-        deal_discount = 20  # 20% off
 
-        # Use HSET to store the deal as a hash
+        # Use HSET to store the key as a hash
+        # The changes I have made probably doesn't make a hash necessary,
+        # but I'll keep it like this for now.
         print(f"Setting up the current event attendance in Redis for event: {event_id}...")
         r.hset(current_event_key, mapping={
-            "event_id": event_id,
-            "discount_percent": deal_discount
+            "event_id": event_id
         })
 
         print("Current event attendance setup successfully.")
 
         # Verify the data was set
-        retrieved_deal = r.hgetall(current_event_key)
-        print(f"Verified data from Redis: {retrieved_deal}")
+        retrieved_attendance = r.hgetall(current_event_key)
+        print(f"Verified data from Redis: {retrieved_attendance}")
 
     except Exception as e:
         print(f"An error occurred during Redis setup: {e}")

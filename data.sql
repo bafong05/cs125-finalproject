@@ -29,7 +29,7 @@ INSERT INTO Event VALUES
 (1002, 'Youth Service Day', 'Community Center', '2025-02-20', '10:00:00'),
 (1003, 'Spring Picnic', 'Lakeside Park', '2025-03-12', '12:00:00'),
 (1004, 'Fundraising Gala', 'Church Hall', '2025-04-18', '18:00:00'),
-(1005, 'Summer Kickoff', 'Beachside', '2025-06:10', '11:00:00'),
+(1005, 'Summer Kickoff', 'Beachside', '2025-06-10', '11:00:00'),
 (1006, 'Holiday Giving Event', 'Food Bank', '2025-12-05', '09:30:00');
 
 -- VOLUNTEERS (10)

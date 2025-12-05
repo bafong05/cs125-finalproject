@@ -44,11 +44,11 @@ def load_secret(secret_name: str, default: str = None) -> str:
 DB_USER = os.getenv("DB_USER", "root")
 DB_PASSWORD = load_secret("mysql_password")
 DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
-DB_NAME = os.getenv("DB_NAME", "Bakery2_Temp")
+DB_NAME = os.getenv("DB_NAME", "youth_group")
 
 # --- MongoDB Configuration ---
 MONGO_URI = load_secret("mongo_uri")
-MONGO_DB_NAME = "bakery_reviews"
+MONGO_DB_NAME = "event_requirements"
 
 # --- Redis Configuration ---
 # For Redis, the URL format is often easier to manage than host, port, etc. separately

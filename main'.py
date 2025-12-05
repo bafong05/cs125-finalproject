@@ -25,9 +25,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # --- FastAPI App ---
 app = FastAPI(
-    title="Bakery API - Now with More Databases!",
-    description="An API for interacting with the Bakery, now using MySQL, MongoDB, and Redis.",
-    version="2.0.0",
+    title="My Home Youth Group API",
+    description="An API for interacting with the youth group data, using MySQL, MongoDB, and Redis.",
+    version="1.0.0",
     lifespan=lifespan
 )
 
@@ -43,16 +43,7 @@ app.add_middleware(
 )
 
 # --- Pydantic Models (for request/response validation) ---
-class Customer(BaseModel):
-    id: int
-    firstName: str
-    lastName: str
 
-class Product(BaseModel):
-    id: str
-    flavor: str
-    kind: str
-    price: float
 
 # --- Pydantic Models for MongoDB Data ---
 from typing import List, Optional, Any
@@ -104,11 +95,34 @@ class ProductReview(BaseModel):
 
 
 # --- Pydantic Model for Redis Data ---
-class DailyDeal(BaseModel):
-    product: Product
-    discount_percent: int
-    discounted_price: float
-    message: str
+
+
+
+class Student(BaseModel):
+    studentID: int
+    firstName: str
+    lastName: str
+    age: int
+    phoneNumber: str
+    email: str
+    guardian1ID: int
+    guardian2ID: int
+    groupID: int
+
+
+class Attendance(BaseModel):
+    studentID: int
+    eventID: int
+    checkInTime: datetime
+    checkOutTime: datetime
+
+
+class Event(BaseModel):
+    eventID: int
+    name: str
+    location: str
+    date: datetime
+    time: datetime
 
 # --- Pydantic Model for the Combined "Trifecta" Endpoint ---
 class ProductOfTheDay(BaseModel):
@@ -121,19 +135,19 @@ def read_root():
     """
     Root endpoint with a welcome message.
     """
-    return {"message": "Welcome to the Bakery API! Now with more databases!"}
+    return {"message": "Welcome to the Youth Group API!"}
 
-@app.get("/customers", response_model=list[Customer])
-def get_all_customers():
+@app.get("/students", response_model=list[Student])
+def get_all_students():
     """
-    Retrieves a list of all customers from MySQL.
+    Retrieves a list of all students from MySQL.
     """
     try:
         cnx = get_db_connection()
         cursor = cnx.cursor(dictionary=True)
-        cursor.execute("SELECT id, firstName, lastName FROM Customer ORDER BY lastName, firstName;")
-        customers = cursor.fetchall()
-        return customers
+        cursor.execute("SELECT id, firstName, lastName FROM Student ORDER BY lastName, firstName;")
+        students = cursor.fetchall()
+        return students
     except mysql.connector.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -141,7 +155,7 @@ def get_all_customers():
             cursor.close()
             cnx.close()
 
-@app.get("/customers/{customer_id}", response_model=Customer)
+@app.get("/customers/{customer_id}", response_model=Student)
 def get_customer_by_id(customer_id: int):
     """
     Retrieves a specific customer by their ID from MySQL.
@@ -149,12 +163,12 @@ def get_customer_by_id(customer_id: int):
     try:
         cnx = get_db_connection()
         cursor = cnx.cursor(dictionary=True)
-        query = "SELECT id, firstName, lastName FROM Customer WHERE id = %s;"
+        query = "SELECT studentID, firstName, lastName FROM Student WHERE id = %s;"
         cursor.execute(query, (customer_id,))
-        customer = cursor.fetchone()
-        if not customer:
-            raise HTTPException(status_code=404, detail="Customer not found")
-        return customer
+        student = cursor.fetchone()
+        if not student:
+            raise HTTPException(status_code=404, detail="Student not found")
+        return student
     except mysql.connector.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
@@ -207,7 +221,7 @@ def get_daily_deal():
     try:
         # 1. Fetch the deal from Redis
         r = get_redis_conn()
-        deal_key = "daily_deal"
+        deal_key = "current_event"
         deal_info = r.hgetall(deal_key)
 
         if not deal_info:

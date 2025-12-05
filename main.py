@@ -1,27 +1,21 @@
 import os
-import json
 import mysql.connector
 from dotenv import load_dotenv
 from pymongo import MongoClient
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Body
 
-load_dotenv()
-
+#MySQL Configuration
 DB_USER = os.getenv("MYSQL_USER")
 DB_PASS = os.getenv("MYSQL_PASSWORD")
-DB_HOST = "mysql-cs125"
-DB_PORT = 3306
+DB_HOST = os.getenv("DB_HOST")
 DB_NAME = "youth_group"
 
-if not DB_USER or not DB_PASS:
-    raise Exception("Missing MySQL environment variables")
-
-MONGO_URL = os.getenv("MONGO_URL")
-if not MONGO_URL:
-    raise Exception("Missing Mongo URL.")
-
-mongo_client = MongoClient(MONGO_URL)
+#MongoDB Configuration
+mongo_client = MongoClient(
+    os.getenv("MONGO_URL"),
+    tls=True,
+    tlsAllowInvalidCertificates=True
+)
 mongo_db = mongo_client["youth_group"]
 
 app = FastAPI()
@@ -31,22 +25,8 @@ def mysql_connect():
     user=DB_USER,
     password=DB_PASS,
     host=DB_HOST,
-    port=DB_PORT,
     database=DB_NAME
     )
-
-def get_students_in_group(group_id):
-    db = mysql_connect()
-    cursor = db.cursor(dictionary=True)
-    cursor.execute(
-        "SELECT * FROM Student WHERE groupId = %s",
-        (group_id,)
-    )
-    rows = cursor.fetchall()
-    cursor.close()
-    db.close()
-    return rows
-
 
 def list_tables():
     db = mysql_connect()
@@ -57,38 +37,127 @@ def list_tables():
     db.close()
     return tables
 
-def get_table(name):
-    db = mysql_connect()
-    cursor = db.cursor(dictionary=True)
-    cursor.execute(f"SELECT * FROM `{name}` LIMIT 50;")
-    rows = cursor.fetchall()
-    cursor.close()
-    db.close()
-    return rows
-
 @app.get("/")
-def all_tables():
-    """Return list of all MySQL tables."""
-    return list_tables()
+def root():
+    return {
+        "message": "Welcome to the Youth Group API!",
+        "tables": list_tables()}
 
+@app.get("/students")
+def get_all_students():
+    """
+    Retrieves a list of all students from MySQL.
+    """
+    try:
+        db = mysql_connect()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("SELECT studentID, firstName, lastName FROM Student ORDER BY firstName, lastName;")
+        rows = cursor.fetchall()
+        cursor.close()
+        db.close()
+        return rows
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
 
-@app.get("/{table_name}")
-def get_table(table_name: str):
-    """Return table data, case-insensitive."""
-    all_tables = list_tables()
-    lookup = {t.lower(): t for t in all_tables}
+@app.get("/students/{student_id}")
+def get_student_by_id(student_id: int):
+    """
+    Retrieves a specific student by their ID from MySQL.
+    """
+    try:
+        db = mysql_connect()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("SELECT studentID, firstName, lastName FROM Student WHERE studentID = %s;", (student_id,))
+        student = cursor.fetchone()
+        cursor.close()
+        db.close()
+        if not student:
+            raise HTTPException(status_code=404, detail="Student not found")
+        return student
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
 
-    if table_name.lower() not in lookup:
-        raise HTTPException(status_code=404, detail="Table not found")
+@app.get("/events")
+def get_all_events():
+    """
+    Retrieves a list of all events from MySQL.
+    """
+    try:
+        db = mysql_connect()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("SELECT eventID, name, location, date, CAST(time AS CHAR) AS time FROM Event ORDER BY date, time;")
+        events = cursor.fetchall()
+        cursor.close()
+        db.close()
+        return events
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
 
-    return get_table(lookup[table_name.lower()])
+@app.post("/events")
+def create_event(data: dict = Body(...)):
+    """
+    Adds a new event with custom fields to MongoDB.
+    """
+    if "eventID" not in data:
+        raise HTTPException(status_code=400, detail="eventID is required")
+    try:
+        db = mysql_connect()
+        cursor = db.cursor()
+        cursor.execute("""
+        INSERT INTO Event (eventID, name, location, date, time)
+        VALUES (%s, %s, %s, %s, %s)
+        """, (
+        data["eventID"],
+        data.get("name"),
+        data.get("location"),
+        data.get("date"),
+        data.get("time")
+        ))
+        db.commit()
+        cursor.close()
+        db.close()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"MySQL insert failed: {e}")
 
+    collection = mongo_db["event_data"]
+    existing = collection.find_one({"eventID": data["eventID"]})
+    if existing:
+        raise HTTPException(status_code=400, detail="Event with this ID already exists")
+    custom_doc = {
+           "eventID": data["eventID"],
+           "customFields": data.get("customFields", {})
+       }
+    collection.insert_one(custom_doc)
+    return {
+         "message": "Event successfully added",
+         "eventID": data["eventID"],
+         "customFields": custom_doc["customFields"]
+    }
 
-@app.get("/groups/{group_id}/students")
-def students_in_group(group_id: int):
-    students = get_students_in_group(group_id)
+@app.get("/events/{event_id}")
+def get_event_data(event_id: int):
+    """
+    Returns an event from MySQL and MongoDB.
+    """
+    try:
+        db = mysql_connect()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("""
+        SELECT eventID, name, location, date, CAST(time AS CHAR) AS time
+        FROM Event
+        WHERE eventID = %s;
+        """, (event_id,))
+        event_sql = cursor.fetchone()
+        cursor.close()
+        db.close()
+        if not event_sql:
+            raise HTTPException(status_code=404, detail="Event not found in MySQL")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"MySQL fetch failed: {e}")
 
-    if not students:
-        raise HTTPException(status_code=404, detail="No students found for this group")
-
-    return students
+    collection = mongo_db["event_data"]
+    event_mongo = collection.find_one({"eventID": event_id}, {"_id": 0})
+    if not event_mongo:
+        return event_sql
+    event_sql["customFields"] = event_mongo.get("customFields", {})
+    return event_sql

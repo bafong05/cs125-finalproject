@@ -98,8 +98,8 @@ CREATE TABLE Attendance
 (
     studentID    INT  NOT NULL,
     eventID      INT  NOT NULL,
-    checkInTime  TIME NOT NULL,
-    checkOutTime TIME,
+    checkInTime  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    checkOutTime DATETIME,
     PRIMARY KEY (studentID, eventID),
     FOREIGN KEY (studentID, eventID) REFERENCES Registration (studentID, eventID)
 );

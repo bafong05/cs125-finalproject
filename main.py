@@ -1,8 +1,11 @@
 import os
 import mysql.connector
 from dotenv import load_dotenv
+import redis
 from pymongo import MongoClient
 from fastapi import FastAPI, HTTPException, Body
+
+load_dotenv()
 
 #MySQL Configuration
 DB_USER = os.getenv("MYSQL_USER")
@@ -18,7 +21,18 @@ mongo_client = MongoClient(
 )
 mongo_db = mongo_client["youth_group"]
 
-app = FastAPI()
+#Redis connection
+redis_client = redis.Redis(
+    host=os.getenv("REDIS_HOST"),
+    port=int(os.getenv("REDIS_PORT")),
+    password=os.getenv("REDIS_PASSWORD"),
+    decode_responses=True
+)
+
+app = FastAPI(
+    title="Youth Management API",
+    description="An API for interacting with the youth group, now using MySQL, MongoDB, and Redis."
+)
 
 def mysql_connect():
     return mysql.connector.connect(
@@ -103,16 +117,10 @@ def create_event(data: dict = Body(...)):
     try:
         db = mysql_connect()
         cursor = db.cursor()
-        cursor.execute("""
-        INSERT INTO Event (eventID, name, location, date, time)
-        VALUES (%s, %s, %s, %s, %s)
-        """, (
-        data["eventID"],
-        data.get("name"),
-        data.get("location"),
-        data.get("date"),
-        data.get("time")
-        ))
+        cursor.execute(
+            "INSERT INTO Event (eventID, name, location, date, time) VALUES (%s, %s, %s, %s, %s)",
+            (data["eventID"], data.get("name"), data.get("location"), data.get("date"), data.get("time")) #[] for dict lookup
+        )
         db.commit()
         cursor.close()
         db.close()
@@ -142,11 +150,9 @@ def get_event_data(event_id: int):
     try:
         db = mysql_connect()
         cursor = db.cursor(dictionary=True)
-        cursor.execute("""
-        SELECT eventID, name, location, date, CAST(time AS CHAR) AS time
-        FROM Event
-        WHERE eventID = %s;
-        """, (event_id,))
+        cursor.execute(
+            "SELECT eventID, name, location, date, CAST(time AS CHAR) AS time FROM Event WHERE eventID = %s;",
+            (event_id,))
         event_sql = cursor.fetchone()
         cursor.close()
         db.close()
@@ -161,3 +167,81 @@ def get_event_data(event_id: int):
         return event_sql
     event_sql["customFields"] = event_mongo.get("customFields", {})
     return event_sql
+
+@app.post("/events/{event_id}/checkin/{student_id}")
+def check_in(event_id: int, student_id: int):
+    """
+    Check a student in with Redis
+    """
+    redis_client.sadd(f"event:{event_id}:checkedIn", student_id)
+    redis_client.sadd(f"event:{event_id}:attendees", student_id)
+    return {"message": "checked in", "eventID": event_id, "studentID": student_id}
+
+@app.post("/events/{event_id}/checkout/{student_id}")
+def check_out(event_id: int, student_id: int):
+    """
+    Check a student out with Redis
+    """
+    redis_client.srem(f"event:{event_id}:checkedIn", student_id)
+    return {"message": "checked out", "eventID": event_id, "studentID": student_id}
+
+@app.get("/events/{event_id}/live")
+def live_attendance(event_id: int):
+    """
+    Returns the live attendance of an event with Redis
+    """
+    key = f"event:{event_id}:checkedIn"
+    students = list(redis_client.smembers(key))
+    return {"eventID": event_id, "checkedIn": students, "count": len(students)}
+
+@app.post("/events/{event_id}/finalize")
+def finalize_event(event_id: int):
+    """
+    Finalizes attendance:
+    - Saves all registered attendees to MySQL
+    - Saves unregistered (walk-in) attendees to MongoDB
+    - Clears Redis keys
+    Returns event attendance summary
+    """
+    attendees_key = f"event:{event_id}:attendees"
+    attendees = list(redis_client.smembers(attendees_key))
+
+    db = mysql_connect()
+    cursor = db.cursor()
+    registered = []
+    walk_ins = []
+    for student_id in attendees:
+        cursor.execute(
+            "SELECT 1 FROM Registration WHERE studentID=%s AND eventID=%s",
+            (student_id, event_id)
+        ) #Check if student is registered
+        is_registered = cursor.fetchone()
+
+        if is_registered:
+            cursor.execute(
+                "INSERT IGNORE INTO Attendance (studentID, eventID, checkInTime) VALUES (%s, %s, NOW())",
+                (student_id, event_id)
+            ) #Save registered to MySQL
+            registered.append(student_id)
+        else:
+            mongo_db["walk_ins"].insert_one({
+                "eventID": event_id,
+                "studentID": student_id
+            }) #Save walk-ins to MongoDB
+            walk_ins.append(student_id)
+    db.commit()
+    cursor.close()
+    db.close()
+
+    redis_client.delete(f"event:{event_id}:checkedIn")
+    redis_client.delete(attendees_key)
+
+    return {
+        "message": "Event finalized successfully",
+        "eventID": event_id,
+        "registeredSaved": registered,
+        "walkInsLogged": walk_ins,
+        "totalRegistered": len(registered),
+        "totalWalkIns": len(walk_ins),
+        "totalAttendees": len(registered) + len(walk_ins)
+    }

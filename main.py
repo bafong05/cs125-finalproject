@@ -1,31 +1,35 @@
 import os
 import mysql.connector
-from dotenv import load_dotenv
 import redis
 from pymongo import MongoClient
 from fastapi import FastAPI, HTTPException, Body
 
-load_dotenv()
+def load_secret(name):
+    path = os.path.join("secrets", f"{name}.txt")
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            return f.read().strip()
+    raise Exception(f"Secret file {path} not found")
 
-#MySQL Configuration
-DB_USER = os.getenv("MYSQL_USER")
-DB_PASS = os.getenv("MYSQL_PASSWORD")
-DB_HOST = os.getenv("DB_HOST")
+#MySQL
+DB_USER = "root"
+DB_PASS = load_secret("mysql_password")
+DB_HOST = "127.0.0.1"
 DB_NAME = "youth_group"
 
-#MongoDB Configuration
+#MongoDB
 mongo_client = MongoClient(
-    os.getenv("MONGO_URL"),
+    load_secret("mongo_url"),
     tls=True,
     tlsAllowInvalidCertificates=True
 )
 mongo_db = mongo_client["youth_group"]
 
-#Redis connection
+#Redis
 redis_client = redis.Redis(
-    host=os.getenv("REDIS_HOST"),
-    port=int(os.getenv("REDIS_PORT")),
-    password=os.getenv("REDIS_PASSWORD"),
+    host="redis-13814.c258.us-east-1-4.ec2.cloud.redislabs.com",
+    port=13814,
+    password=load_secret("redis_password"),
     decode_responses=True
 )
 

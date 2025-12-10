@@ -1387,14 +1387,28 @@ async function loadEventAttendance(eventID) {
         try {
             const data = await fetchData(`/events/${eventID}/attendance`);
             
-            // Check if event has been finalized - look for actual data in arrays
+            if (!data) {
+                container.innerHTML = '<div style="color: var(--text-muted); font-style: italic;">Error loading attendance data.</div>';
+                return;
+            }
+            
+            // Check status from backend
+            if (data.status === "not_started") {
+                container.innerHTML = `<div style="color: var(--text-muted); font-style: italic;">${data.message || "The event hasn't been started yet."}</div>`;
+                return;
+            }
+            
+            if (data.status === "in_progress") {
+                container.innerHTML = `<div style="color: var(--text-muted); font-style: italic;">${data.message || "Event is in progress. Finalize to view attendance data."}</div>`;
+                return;
+            }
+            
+            // If status is "finalized" or has finalized data, show the full information
             const hasRegistered = data?.registered && data.registered.length > 0;
             const hasWalkIns = data?.walkIns && data.walkIns.length > 0;
-            const hasAnyData = hasRegistered || hasWalkIns;
             
-            // If no data at all, show "hasn't started" message
-            if (!data || !hasAnyData) {
-                container.innerHTML = '<div style="color: var(--text-muted); font-style: italic;">Event hasn\'t started. Finalize the event after collecting attendance data.</div>';
+            if (!hasRegistered && !hasWalkIns) {
+                container.innerHTML = '<div style="color: var(--text-muted); font-style: italic;">The event hasn\'t been started yet.</div>';
                 return;
             }
             
@@ -1422,7 +1436,7 @@ async function loadEventAttendance(eventID) {
                 html += `<ul style="margin: var(--spacing-xs) 0; padding-left: 20px; font-size: 0.875rem; color: var(--text-secondary);">`;
                 data.walkIns.forEach(attendee => {
                     const name = `${escapeHtml(attendee.firstName || '')} ${escapeHtml(attendee.lastName || '')}`.trim();
-                    html += `<li>${name || 'Unknown'} (ID: ${attendee.studentID})${attendee.checkInTime ? ` - Checked in: ${attendee.checkInTime}` : ''}</li>`;
+                    html += `<li>${name || 'Unknown'} (ID: ${attendee.studentID})</li>`;
                 });
                 html += `</ul></div>`;
             }

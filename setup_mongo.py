@@ -15,9 +15,11 @@ def setup_event_data():
     collection.delete_many({})
 
     # Sample custom event data
+    # Note: eventIDs must match the eventIDs in MySQL (data.sql)
+    # MySQL events have IDs: 1, 2, 3, 4, 5, 6
     documents = [
         {
-            "eventID": 1001,
+            "eventID": 1,
             "customFields": {
                 "packingList": ["sleeping bag", "water bottle", "Bible"],
                 "bringFriend": True,
@@ -25,7 +27,7 @@ def setup_event_data():
             }
         },
         {
-            "eventID": 1002,
+            "eventID": 2,
             "customFields": {
                 "requiredItems": ["gloves", "closed-toe shoes"],
                 "serviceHours": 4,
@@ -33,14 +35,14 @@ def setup_event_data():
             }
         },
         {
-            "eventID": 1003,
+            "eventID": 3,
             "customFields": {
                 "foodPreference": "vegetarian-friendly",
                 "gamesPlanned": ["Frisbee", "Water Balloon Toss"]
             }
         },
         {
-            "eventID": 1004,
+            "eventID": 4,
             "customFields": {
                 "dressCode": "semi-formal",
                 "mealChoice": ["chicken", "vegetarian"],
@@ -48,14 +50,14 @@ def setup_event_data():
             }
         },
         {
-            "eventID": 1005,
+            "eventID": 5,
             "customFields": {
                 "beachActivities": ["volleyball", "sandcastle contest"],
                 "bringSunscreen": True
             }
         },
         {
-            "eventID": 1006,
+            "eventID": 6,
             "customFields": {
                 "donationItems": ["canned food", "blankets"],
                 "volunteersNeeded": 12

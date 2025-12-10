@@ -2,37 +2,49 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Youth Group Dashboard</title>
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
     <div class="app-container">
-        <header class="app-header">
-            <h1>Youth Group Dashboard</h1>
-            <p class="app-subtitle">
-                Manage students, small groups, and events – or view a student’s dashboard as a parent.
-            </p>
-        </header>
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h1>Youth Group</h1>
+                <p>Management System</p>
+            </div>
+            
+            <nav class="nav-tabs" role="tablist" aria-label="View selection">
+                <button id="leader-mode-btn" class="nav-tab active" data-view="leader" aria-selected="true" role="tab">
+                    <span>📊</span>
+                    <span>Leader Dashboard</span>
+                </button>
+                <button id="student-mode-btn" class="nav-tab" data-view="student" aria-selected="false" role="tab">
+                    <span>👤</span>
+                    <span>Student View</span>
+                </button>
+            </nav>
+        </aside>
 
-        <div class="view-switcher">
-            <button id="leader-mode-btn" class="switch-btn leader-btn active" onclick="switchView('leader')">
-                Leader Dashboard
-            </button>
-            <button id="parent-mode-btn" class="switch-btn parent-btn" onclick="switchView('parent')">
-                Parent / Student View
-            </button>
-        </div>
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="top-bar">
+                <h2 id="page-title">Leader Dashboard</h2>
+            </div>
 
-        <main id="leader-dashboard-view">
-            <section class="section-card">
-                <div class="section-header">
+        <!-- LEADER DASHBOARD VIEW -->
+        <div id="leader-dashboard-view">
+            <!-- STUDENTS SECTION -->
+            <section class="card">
+                <div class="card-header">
                     <div>
-                        <h2>Students</h2>
-                        <p class="section-description">
+                        <h3 class="card-title">Students</h3>
+                        <p class="card-description">
                             View student details, guardians, and group assignments.
                         </p>
                     </div>
-                    <div class="section-actions">
+                    <div class="card-actions">
                         <input
                             type="text"
                             id="student-search"
@@ -42,8 +54,8 @@
                     </div>
                 </div>
 
-                <button class="toggle-btn" onclick="toggleStudentsList()" id="students-toggle-btn">
-                    Hide Students ▲
+                <button class="btn btn-toggle btn-sm" id="students-toggle-btn" aria-expanded="false" aria-controls="student-section">
+                    Show Students ▼
                 </button>
 
                 <div id="students-loading" class="loading" style="display:none;">
@@ -51,27 +63,36 @@
                     <span>Loading students...</span>
                 </div>
 
-                <div id="student-section">
+                <div id="student-section" style="display:none;">
                     <div class="table-wrapper">
-                        <table class="data-table">
+                        <table class="data-table" role="table" aria-label="Students list">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Student Name</th>
+                                    <th scope="col" style="width: 120px; text-align:right;">Actions</th>
+                                </tr>
+                            </thead>
                             <tbody id="member-table-body"></tbody>
                         </table>
                     </div>
                 </div>
             </section>
 
-            <section class="section-card">
-                <div class="section-header">
+            <!-- GROUPS SECTION -->
+            <section class="card">
+                <div class="card-header">
                     <div>
-                        <h2>Small Groups</h2>
-                        <p class="section-description">
+                        <h3 class="card-title">Small Groups</h3>
+                        <p class="card-description">
                             See group leaders and members for each small group.
                         </p>
                     </div>
+                    <div class="card-actions">
+                    </div>
                 </div>
 
-                <button class="toggle-btn" onclick="toggleGroupsList()" id="groups-toggle-btn">
-                    Hide Groups ▲
+                <button class="btn btn-toggle btn-sm" id="groups-toggle-btn" aria-expanded="false" aria-controls="groups-section">
+                    Show Groups ▼
                 </button>
 
                 <div id="groups-loading" class="loading" style="display:none;">
@@ -79,102 +100,110 @@
                     <span>Loading groups...</span>
                 </div>
 
-                <div id="groups-section">
+                <div id="groups-section" style="display:none;">
                     <div class="table-wrapper">
-                        <table class="data-table">
+                        <table class="data-table" role="table" aria-label="Small groups list">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Group Name</th>
+                                    <th scope="col" style="width: 120px; text-align:right;">Actions</th>
+                                </tr>
+                            </thead>
                             <tbody id="groups-table-body"></tbody>
                         </table>
                     </div>
                 </div>
             </section>
             
-            <section class="section-card">
-                <div class="section-header">
+            <!-- EVENTS SECTION -->
+            <section class="card">
+                <div class="card-header">
                     <div>
-                        <h2>Upcoming Events</h2>
-                        <p class="section-description" id="events-view-description">
-                            Click a day with an event to view details and action buttons.
+                        <h3 class="card-title">Upcoming Events</h3>
+                        <p class="card-description" id="events-view-description">
+                            View event details and manage attendance.
                         </p>
                     </div>
-                    <div class="section-actions event-view-switcher">
-                        <button id="calendar-view-btn" class="action-btn-small active" onclick="switchEventView('calendar')">
-                            Calendar
-                        </button>
-                        <button id="list-view-btn" class="action-btn-small" onclick="switchEventView('list')">
-                            List View
-                        </button>
-                    </div>
-                </div>
-                
-                <div id="calendar-view-container">
-                    <div id="calendar-header" class="calendar-header">
-                        <button onclick="changeMonth(-1)">&#9664; Prev</button>
-                        <h3 id="current-month-year">Month Year</h3>
-                        <button onclick="changeMonth(1)">Next &#9654;</button>
-                    </div>
-                    <div id="calendar-grid" class="calendar-grid">
-                        </div>
                 </div>
 
-                <div id="list-view-container" style="display:none;">
-                    <div class="table-wrapper">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Event Name</th>
-                                    <th>Date & Time</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="event-list-body">
-                                </tbody>
-                        </table>
-                    </div>
-                </div>
-                
+                <button class="btn btn-toggle btn-sm" id="events-toggle-btn" aria-expanded="false" aria-controls="events-section">
+                    Show Events ▼
+                </button>
+
                 <div id="events-loading" class="loading" style="display:none;">
-                    <div class="spinner"></div> <span>Loading Events...</span>
+                    <div class="spinner"></div>
+                    <span>Loading Events...</span>
+                </div>
+
+                <div id="events-section" style="display:none;">
+                    <div id="list-view-container">
+                        <div class="table-wrapper">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Event Name</th>
+                                        <th>Date & Time</th>
+                                        <th>Details</th>
+                                        <th>Start</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="event-list-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </section>
             
-            <section class="section-card">
-                <div class="section-header">
-                    <h2>Create New Event</h2>
+            <!-- CREATE EVENT SECTION -->
+            <section class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Create New Event</h3>
                 </div>
-                <form id="create-event-form">
-                    <div class="form-group">
-                        <label for="event-name">Event Name:</label>
-                        <input type="text" id="event-name" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="event-date">Date:</label>
-                        <input type="date" id="event-date" required>
-                    </div>
-                    <div class="form-group half-width">
-                        <label for="event-time">Time:</label>
-                        <input type="time" id="event-time" required>
-                    </div>
-                    <div class="form-group half-width">
-                        <label for="event-location">Location:</label>
-                        <input type="text" id="event-location" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="event-description">Description:</label>
-                        <textarea id="event-description"></textarea>
-                    </div>
-                    <button type="submit" class="action-btn btn-create-event">Create Event</button>
-                </form>
+                <button class="btn btn-toggle btn-sm" id="create-event-toggle-btn" aria-expanded="false" aria-controls="create-event-section">
+                    Show Form ▼
+                </button>
+                <div id="create-event-section" style="display:none;">
+                    <form id="create-event-form">
+                        <div class="form-group">
+                            <label for="event-name">Event Name:</label>
+                            <input type="text" id="event-name" required aria-required="true" minlength="1" maxlength="100">
+                            <span class="error-message" id="event-name-error" role="alert"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="event-date">Date:</label>
+                            <input type="date" id="event-date" required aria-required="true">
+                            <span class="error-message" id="event-date-error" role="alert"></span>
+                        </div>
+                        <div class="form-group half-width">
+                            <label for="event-time">Time:</label>
+                            <input type="time" id="event-time" required aria-required="true">
+                            <span class="error-message" id="event-time-error" role="alert"></span>
+                        </div>
+                        <div class="form-group half-width">
+                            <label for="event-location">Location:</label>
+                            <input type="text" id="event-location" required aria-required="true" minlength="1" maxlength="200">
+                            <span class="error-message" id="event-location-error" role="alert"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="event-description">Description:</label>
+                            <textarea id="event-description" maxlength="500" aria-describedby="event-description-hint"></textarea>
+                            <span class="form-hint" id="event-description-hint">Optional. Maximum 500 characters.</span>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create Event</button>
+                    </form>
+                </div>
             </section>
+        </div>
 
-        </main>
-        
-        <div id="event-details-popup" class="event-details-popup" style="display:none;">
-            </div>
+        <!-- EVENT DETAILS POPUP -->
+        <div id="popup-backdrop" class="popup-backdrop" style="display:none;" aria-hidden="true"></div>
+        <div id="event-details-popup" class="event-details-popup" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="popup-event-title"></div>
 
-        <main id="parent-view" style="display:none;">
-            <section class="section-card lookup-form-card">
-                <h2>Student Lookup</h2>
-                <p class="section-description">
+        <!-- STUDENT VIEW -->
+        <div id="student-view" style="display:none;">
+            <section class="card" style="max-width: 500px; margin: 0 auto;">
+                <h3 class="card-title">Student Lookup</h3>
+                <p class="card-description">
                     Enter a student ID to view their personal dashboard.
                 </p>
                 <form id="student-lookup-form">
@@ -182,35 +211,37 @@
                         <label for="student-id-input">Student ID</label>
                         <input type="number" id="student-id-input" placeholder="Enter Student ID" required />
                     </div>
-                    <button class="action-btn btn-lookup">View Dashboard</button>
+                    <button class="btn btn-accent" style="width: 100%;">View Dashboard</button>
                 </form>
             </section>
 
-            <section id="parent-dashboard-content" style="display:none;">
-                <p class="student-name-display" id="parent-student-name"></p>
+            <div id="student-dashboard-content" style="display:none;">
+                <p style="text-align: center; font-size: 1.5rem; font-weight: 700; color: var(--accent); margin-bottom: var(--spacing-xl);" id="student-name"></p>
 
-                <section class="section-card">
-                    <div class="section-header">
-                        <h2>Upcoming Events</h2>
-                        <p class="section-description">
-                            Register for future events (mock status only).
-                        </p>
+                <section class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">Upcoming Events</h3>
+                            <p class="card-description">
+                                Register for future events (mock status only).
+                            </p>
+                        </div>
                     </div>
                     <h3 class="subheading">Upcoming Events</h3>
-                    <div id="parent-upcoming-events"></div>
+                    <div id="student-upcoming-events"></div>
                 </section>
 
-                <section class="section-card">
-                    <div class="section-header">
+                <section class="card">
+                    <div class="card-header">
                         <div>
-                            <h2>Attendance History</h2>
-                            <p class="section-description">
+                            <h3 class="card-title">Attendance History</h3>
+                            <p class="card-description">
                                 See when your student checked in and attended past events.
                             </p>
                         </div>
                     </div>
 
-                    <div id="parent-attendance-loading" class="loading" style="display:none;">
+                    <div id="student-attendance-loading" class="loading" style="display:none;">
                         <div class="spinner"></div>
                         <span>Loading attendance...</span>
                     </div>
@@ -225,13 +256,16 @@
                                     <th>Check-In Time</th>
                                 </tr>
                             </thead>
-                            <tbody id="parent-attendance-body"></tbody>
+                            <tbody id="student-attendance-body"></tbody>
                         </table>
                     </div>
                 </section>
-            </section>
+            </div>
         </main>
     </div>
+
+    <!-- Toast container for notifications -->
+    <div id="toast-container"></div>
 
     <script src="script.js"></script>
 </body>

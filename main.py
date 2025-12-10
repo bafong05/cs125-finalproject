@@ -374,6 +374,117 @@ def delete_event(event_id: int):
         raise HTTPException(status_code=500, detail=f"Failed to delete event: {str(e)}")
 
 
+# --------------------------
+# STUDENT ATTENDANCE HISTORY
+# --------------------------
+def get_student_attendance_history(student_id: int):
+    """
+    Returns attendance history for a specific student.
+    Includes registered attendees (from MySQL Attendance) and walk-ins (from MongoDB).
+    Shows registration status for each event.
+    """
+    db = mysql_connect()
+    cursor = db.cursor(dictionary=True)
+    
+    try:
+        # Check if student exists
+        cursor.execute("SELECT studentID FROM Student WHERE studentID=%s;", (student_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Student not found")
+        
+        # Get registered attendance history with event details and registration status
+        cursor.execute("""
+            SELECT 
+                a.attendanceID,
+                a.studentID,
+                a.eventID,
+                a.checkInTime,
+                a.checkOutTime,
+                e.name AS eventName,
+                e.date,
+                e.time AS eventTime,
+                CASE WHEN r.studentID IS NOT NULL THEN 1 ELSE 0 END AS isRegistered
+            FROM Attendance a
+            JOIN Event e ON a.eventID = e.eventID
+            LEFT JOIN Registration r ON a.studentID = r.studentID AND a.eventID = r.eventID
+            WHERE a.studentID = %s
+            ORDER BY e.date DESC, a.checkInTime DESC
+        """, (student_id,))
+        
+        registered_records = cursor.fetchall()
+        
+        # Get walk-ins from MongoDB
+        walk_ins = list(mongo_db["walk_ins"].find({"studentID": student_id}, {"_id": 0}))
+        
+        # Get event IDs for walk-ins to fetch event details in one query
+        walk_in_event_ids = [w.get("eventID") for w in walk_ins if w.get("eventID")]
+        walk_in_records = []
+        
+        if walk_in_event_ids:
+            placeholders = ','.join(['%s'] * len(walk_in_event_ids))
+            cursor.execute(f"""
+                SELECT eventID, name, date, time
+                FROM Event
+                WHERE eventID IN ({placeholders})
+            """, tuple(walk_in_event_ids))
+            events_dict = {row["eventID"]: row for row in cursor.fetchall()}
+            
+            # Match walk-ins with events
+            for walk_in in walk_ins:
+                event_id = walk_in.get("eventID")
+                if event_id in events_dict:
+                    event = events_dict[event_id]
+                    walk_in_records.append({
+                        "eventID": event_id,
+                        "eventName": event["name"],
+                        "date": str(event["date"]),
+                        "checkInTime": str(walk_in.get("checkInTime")) if walk_in.get("checkInTime") else None,
+                        "checkOutTime": None,  # Walk-ins don't have check-out times
+                        "isRegistered": False,  # Walk-ins are never registered
+                        "isWalkIn": True
+                    })
+        
+        cursor.close()
+        db.close()
+        
+        # Combine and format the response
+        attendance_history = []
+        
+        # Process registered attendees
+        for record in registered_records:
+            attendance_history.append({
+                "eventName": record["eventName"],
+                "date": str(record["date"]),
+                "checkInTime": str(record["checkInTime"]) if record["checkInTime"] else None,
+                "checkOutTime": str(record["checkOutTime"]) if record["checkOutTime"] else None,
+                "isRegistered": bool(record["isRegistered"]),
+                "isWalkIn": False
+            })
+        
+        # Process walk-ins
+        for record in walk_in_records:
+            attendance_history.append({
+                "eventName": record["eventName"],
+                "date": record["date"],
+                "checkInTime": record["checkInTime"],
+                "checkOutTime": None,
+                "isRegistered": False,  # Walk-ins are never registered
+                "isWalkIn": True
+            })
+        
+        # Sort by date descending, then by check-in time descending
+        attendance_history.sort(key=lambda x: (x["date"], x["checkInTime"] or ""), reverse=True)
+        
+        return attendance_history
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        cursor.close()
+        db.close()
+        raise HTTPException(status_code=500, detail=f"Failed to fetch attendance history: {str(e)}")
+
+
 
 # --------------------------
 # ATTENDANCE – REDIS SET
@@ -756,6 +867,143 @@ def route_finalized(event_id: int):
 def route_attendance(event_id: int):
     """Alias for /finalized endpoint to match frontend expectations"""
     return get_finalized_attendance_view(event_id)
+
+
+@app.get("/attendance/{student_id}")
+def route_student_attendance(student_id: int):
+    """Returns attendance history for a specific student"""
+    return get_student_attendance_history(student_id)
+
+
+@app.get("/students/{student_id}/registrations")
+def route_student_registrations(student_id: int):
+    """Returns list of event IDs that a student is registered for"""
+    db = mysql_connect()
+    cursor = db.cursor(dictionary=True)
+    
+    try:
+        # Check if student exists
+        cursor.execute("SELECT studentID FROM Student WHERE studentID=%s;", (student_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Student not found")
+        
+        # Get registered event IDs
+        cursor.execute("""
+            SELECT eventID 
+            FROM Registration 
+            WHERE studentID = %s
+        """, (student_id,))
+        
+        registrations = cursor.fetchall()
+        registered_event_ids = [r["eventID"] for r in registrations]
+        
+        cursor.close()
+        db.close()
+        
+        return {"studentID": student_id, "registeredEvents": registered_event_ids}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        cursor.close()
+        db.close()
+        raise HTTPException(status_code=500, detail=f"Failed to fetch registrations: {str(e)}")
+
+
+@app.post("/students/{student_id}/registrations/{event_id}")
+def route_register_student(student_id: int, event_id: int):
+    """Register a student for an event"""
+    db = mysql_connect()
+    cursor = db.cursor(dictionary=True)
+    
+    try:
+        # Check if student exists
+        cursor.execute("SELECT studentID FROM Student WHERE studentID=%s;", (student_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Student not found")
+        
+        # Check if event exists
+        cursor.execute("SELECT eventID FROM Event WHERE eventID=%s;", (event_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Event not found")
+        
+        # Check if already registered
+        cursor.execute("""
+            SELECT 1 FROM Registration 
+            WHERE studentID=%s AND eventID=%s
+        """, (student_id, event_id))
+        if cursor.fetchone():
+            cursor.close()
+            db.close()
+            return {"message": "Student already registered for this event", "studentID": student_id, "eventID": event_id}
+        
+        # Register student
+        cursor.execute("""
+            INSERT INTO Registration (studentID, eventID)
+            VALUES (%s, %s)
+        """, (student_id, event_id))
+        
+        db.commit()
+        cursor.close()
+        db.close()
+        
+        return {"message": "Student registered successfully", "studentID": student_id, "eventID": event_id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        cursor.close()
+        db.close()
+        raise HTTPException(status_code=500, detail=f"Failed to register student: {str(e)}")
+
+
+@app.delete("/students/{student_id}/registrations/{event_id}")
+def route_unregister_student(student_id: int, event_id: int):
+    """Unregister a student from an event"""
+    db = mysql_connect()
+    cursor = db.cursor(dictionary=True)
+    
+    try:
+        # Check if student exists
+        cursor.execute("SELECT studentID FROM Student WHERE studentID=%s;", (student_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Student not found")
+        
+        # Check if event exists
+        cursor.execute("SELECT eventID FROM Event WHERE eventID=%s;", (event_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Event not found")
+        
+        # Check if registered
+        cursor.execute("""
+            SELECT 1 FROM Registration 
+            WHERE studentID=%s AND eventID=%s
+        """, (student_id, event_id))
+        if not cursor.fetchone():
+            cursor.close()
+            db.close()
+            return {"message": "Student not registered for this event", "studentID": student_id, "eventID": event_id}
+        
+        # Unregister student
+        cursor.execute("""
+            DELETE FROM Registration 
+            WHERE studentID=%s AND eventID=%s
+        """, (student_id, event_id))
+        
+        db.commit()
+        cursor.close()
+        db.close()
+        
+        return {"message": "Student unregistered successfully", "studentID": student_id, "eventID": event_id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        cursor.close()
+        db.close()
+        raise HTTPException(status_code=500, detail=f"Failed to unregister student: {str(e)}")
 
 
 # ====================================================================

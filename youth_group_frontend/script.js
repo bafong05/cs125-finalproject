@@ -713,7 +713,7 @@ async function updateLiveAttendance(eventID) {
     if (!liveText) return;
 
     try {
-        const data = await fetchData(`/events/${eventID}/live`);
+    const data = await fetchData(`/events/${eventID}/live`);
         const count = data.count || 0;
         const checkedInStudents = data.checkedInStudents || [];
         
@@ -732,7 +732,7 @@ async function updateLiveAttendance(eventID) {
         if (namesContainer) {
             if (checkedInStudents.length === 0) {
                 namesContainer.innerHTML = '<div style="color: var(--text-muted); font-style: italic;">No one checked in yet</div>';
-            } else {
+    } else {
                 // Sort by studentID to maintain consistent order
                 const sortedStudents = [...checkedInStudents].sort((a, b) => {
                     const idA = parseInt(a.studentID, 10) || 0;
@@ -781,17 +781,17 @@ async function finalizeEvent(eventID) {
 
         const data = await res.json();
 
-        if (data && data.totalAttendees !== undefined) {
-            showToast(
-                `Event finalized. Total attendees: ${data.totalAttendees}`,
-                "success"
-            );
-            closeEventDetailsPopup();
-            
+    if (data && data.totalAttendees !== undefined) {
+        showToast(
+            `Event finalized. Total attendees: ${data.totalAttendees}`,
+            "success"
+        );
+        closeEventDetailsPopup();
+
             // Refresh events list
-            const updatedEvents = await fetchData("/events", "events-loading");
-            allEvents = updatedEvents;
-            renderAllEventViews(allEvents, currentCalendarDate);
+    const updatedEvents = await fetchData("/events", "events-loading");
+    allEvents = updatedEvents;
+    renderAllEventViews(allEvents, currentCalendarDate);
         } else {
             showToast("Finalization failed.", "error");
         }
@@ -1076,66 +1076,340 @@ async function handleStudentLookup(e) {
     const studentName = `${student.firstName} ${student.lastName}`;
     nameDisplay.innerText = `Welcome, ${studentName}! (ID: ${studentID})`;
 
-    const attendanceHistory = await fetchData(
-        `/attendance/${studentID}`,
-        "student-attendance-loading"
-    );
+    // Render student information
+    renderStudentInfo(student);
 
-    renderStudentUpcomingEvents(studentID, allEvents);
+    // Show loading indicator
+    const loadingElement = document.getElementById("student-attendance-loading");
+    if (loadingElement) loadingElement.style.display = "flex";
+
+    let attendanceHistory = [];
+    try {
+        const response = await fetch(`${API_BASE_URL}/attendance/${studentID}`);
+        if (response.ok) {
+            attendanceHistory = await response.json();
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            showToast(`Error loading attendance: ${errorData.detail || response.statusText}`, "error");
+        }
+    } catch (err) {
+        console.error("Error fetching attendance:", err);
+        showToast("Error loading attendance history", "error");
+    } finally {
+        if (loadingElement) loadingElement.style.display = "none";
+    }
+
+    // Refresh events before rendering to get newly created events
+    const refreshedEvents = await fetchData("/events", null);
+    allEvents = refreshedEvents || allEvents;
+    
+    await renderStudentUpcomingEvents(studentID, allEvents);
     renderStudentAttendanceHistory(attendanceHistory);
 
     contentDiv.style.display = "block";
 }
 
-function renderStudentUpcomingEvents(studentID, events) {
+// -----------------------------
+// RENDER STUDENT INFORMATION
+// -----------------------------
+function renderStudentInfo(student) {
+    const container = document.getElementById("student-info-display");
+    if (!container) return;
+
+    const guardians = student.guardians || [];
+    const guardianList = guardians.length
+        ? guardians.map((g) => escapeHtml(g)).join(", ")
+        : "N/A";
+
+    // Get group name if available
+    const group = allGroups.find(g => g.groupID === student.groupID);
+    const groupName = group ? escapeHtml(group.name) : `Group ${student.groupID}`;
+
+    container.innerHTML = `
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm) var(--spacing-md); font-size: 0.75rem; line-height: 1.4;">
+            <span>
+                <strong style="color: var(--text-primary); font-size: 0.6875rem;">ID:</strong>
+                <span style="color: var(--text-secondary); font-size: 0.75rem; margin-left: 2px;" id="student-info-id">${student.studentID}</span>
+            </span>
+            <span style="color: var(--border);">|</span>
+            <span>
+                <strong style="color: var(--text-primary); font-size: 0.6875rem;">Name:</strong>
+                <span style="color: var(--text-secondary); font-size: 0.75rem; margin-left: 2px;" id="student-info-name">${escapeHtml((student.firstName || "") + " " + (student.lastName || "")).trim() || "N/A"}</span>
+            </span>
+            <span style="color: var(--border);">|</span>
+            <span>
+                <strong style="color: var(--text-primary); font-size: 0.6875rem;">Age:</strong>
+                <span style="color: var(--text-secondary); font-size: 0.75rem; margin-left: 2px;" id="student-info-age">${student.age || "N/A"}</span>
+            </span>
+            <span style="color: var(--border);">|</span>
+            <span>
+                <strong style="color: var(--text-primary); font-size: 0.6875rem;">Phone:</strong>
+                <span style="color: var(--text-secondary); font-size: 0.75rem; margin-left: 2px;" id="student-info-phone">${escapeHtml(student.phone || student.phoneNumber || "N/A")}</span>
+            </span>
+            <span style="color: var(--border);">|</span>
+            <span>
+                <strong style="color: var(--text-primary); font-size: 0.6875rem;">Email:</strong>
+                <span style="color: var(--text-secondary); font-size: 0.75rem; margin-left: 2px;" id="student-info-email">${escapeHtml(student.email || "N/A")}</span>
+            </span>
+            <span style="color: var(--border);">|</span>
+            <span>
+                <strong style="color: var(--text-primary); font-size: 0.6875rem;">Group:</strong>
+                <span style="color: var(--text-secondary); font-size: 0.75rem; margin-left: 2px;">${groupName}</span>
+            </span>
+            ${guardians.length > 0 ? `
+                <span style="color: var(--border);">|</span>
+                <span>
+                    <strong style="color: var(--text-primary); font-size: 0.6875rem;">Guardian(s):</strong>
+                    <span style="color: var(--text-secondary); font-size: 0.75rem; margin-left: 2px;">${guardianList}</span>
+                </span>
+            ` : ''}
+        </div>
+    `;
+}
+
+// Helper function to refresh student view (used when events are updated)
+async function refreshStudentView(studentID) {
+    const contentDiv = document.getElementById("student-dashboard-content");
+    if (!contentDiv || contentDiv.style.display === "none") {
+        return; // Student view not currently visible
+    }
+    
+    // Refresh events
+    const refreshedEvents = await fetchData("/events", null);
+    allEvents = refreshedEvents || allEvents;
+    
+    // Re-render the student view
+    await renderStudentUpcomingEvents(studentID, allEvents);
+    
+    // Note: We don't refresh attendance history as it doesn't change when events are created
+}
+
+async function renderStudentUpcomingEvents(studentID, events) {
     const container = document.getElementById("student-upcoming-events");
     container.innerHTML = "";
 
-    if (!events.length) {
-        container.innerHTML = "<p>No upcoming events scheduled.</p>";
+    console.log("renderStudentUpcomingEvents called with", events?.length || 0, "events");
+    
+    if (!events || events.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: var(--spacing-lg); color: var(--text-muted);">No upcoming events scheduled.</div>';
         return;
     }
 
-    events.forEach((event) => {
-        const isRegistered = Math.random() > 0.5; // mock
+    // Get registration status
+    let registeredEventIDs = [];
+    try {
+        const registrationData = await fetchData(`/students/${studentID}/registrations`, null);
+        registeredEventIDs = registrationData?.registeredEvents || [];
+    } catch (error) {
+        console.error("Error fetching registrations:", error);
+        // Continue without registration data
+    }
+
+    // Filter to only upcoming events and sort by date
+    // Parse today's date properly to avoid timezone issues
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayDateString = today.toISOString().split('T')[0]; // Get YYYY-MM-DD format
+    
+    const upcomingEvents = events
+        .filter(event => {
+            // Compare date strings directly to avoid timezone issues
+            const eventDateString = event.date; // Already in YYYY-MM-DD format
+            const isUpcoming = eventDateString >= todayDateString;
+            if (!isUpcoming) {
+                console.log("Filtered out past event:", event.name, "date:", event.date);
+            }
+            return isUpcoming;
+        })
+        .sort((a, b) => {
+            const dateA = new Date(`${a.date}T${a.time}`);
+            const dateB = new Date(`${b.date}T${b.time}`);
+            return dateA - dateB;
+        });
+    
+    console.log("Upcoming events after filtering:", upcomingEvents.length, "out of", events.length);
+
+    if (upcomingEvents.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: var(--spacing-lg); color: var(--text-muted);">No upcoming events scheduled.</div>';
+        return;
+    }
+
+    // Create a table for better organization
+    container.innerHTML = `
+        <div style="overflow-x: auto;">
+            <table class="data-table" style="width: 100%; margin-top: var(--spacing-sm);">
+                <thead>
+                    <tr>
+                        <th style="text-align: left;">Event</th>
+                        <th style="text-align: left;">Date & Time</th>
+                        <th style="text-align: left;">Location</th>
+                        <th style="text-align: center;">Status</th>
+                        <th style="text-align: center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${upcomingEvents.map(event => {
+                        const isRegistered = registeredEventIDs.includes(event.eventID);
         const statusClass = isRegistered ? "status-registered" : "status-not-registered";
         const statusText = isRegistered ? "Registered" : "Not Registered";
 
-        container.innerHTML += `
-            <div class="parent-event-card">
-                <strong>${event.name}</strong> 
-                <span class="registration-status ${statusClass}">${statusText}</span>
-                <p>Date: ${event.date} @ ${event.time}</p>
-                <p>Location: ${event.location}</p>
+                        // Format date nicely - parse date string to avoid timezone issues
+                        // event.date is in format "YYYY-MM-DD", parse it manually
+                        const dateParts = event.date.split('-');
+                        const year = parseInt(dateParts[0]);
+                        const month = parseInt(dateParts[1]) - 1; // JavaScript months are 0-indexed
+                        const day = parseInt(dateParts[2]);
+                        const eventDate = new Date(year, month, day);
+                        
+                        const formattedDate = eventDate.toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric',
+                            year: 'numeric'
+                        });
+                        const formattedTime = event.time ? event.time.substring(0, 5) : '';
+                        
+                        return `
+                            <tr>
+                                <td style="font-weight: 600; color: var(--text-primary);">
+                                    ${escapeHtml(event.name)}
+                                </td>
+                                <td style="color: var(--text-secondary);">
+                                    <div>${formattedDate}</div>
+                                    <div style="font-size: 0.875rem; color: var(--text-muted);">${formattedTime}</div>
+                                </td>
+                                <td style="color: var(--text-secondary);">
+                                    ${escapeHtml(event.location)}
+                                </td>
+                                <td style="text-align: center;">
+                                    <span class="registration-status ${statusClass}" style="
+                                        display: inline-block;
+                                        padding: 4px 12px;
+                                        border-radius: var(--radius-sm);
+                                        font-size: 0.875rem;
+                                        font-weight: 500;
+                                    ">${statusText}</span>
+                                </td>
+                                <td style="text-align: center;">
+                                    <button 
+                                        class="btn btn-sm ${isRegistered ? 'btn-secondary' : 'btn-accent'}" 
+                                        onclick="toggleRegistration(${studentID}, ${event.eventID}, ${isRegistered})"
+                                        style="white-space: nowrap; padding: 6px 12px; font-size: 0.875rem;"
+                                    >
+                                        ${isRegistered ? 'Unregister' : 'Register'}
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
             </div>
         `;
-    });
 }
 
 function renderStudentAttendanceHistory(records) {
     const tableBody = document.getElementById("student-attendance-body");
+    if (!tableBody) return;
+    
     tableBody.innerHTML = "";
 
     if (!records || records.length === 0) {
         tableBody.innerHTML =
-            '<tr><td colspan="4" style="text-align:center;">No attendance history.</td></tr>';
+            '<tr><td colspan="4" style="text-align:center; color: var(--text-muted);">No attendance history.</td></tr>';
         return;
     }
 
     records.forEach((record) => {
+        // Format date nicely
+        let formattedDate = "N/A";
+        if (record.date) {
+            try {
+                const [year, month, day] = record.date.split('-').map(Number);
+                const dateObj = new Date(year, month - 1, day);
+                formattedDate = dateObj.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+            } catch (e) {
+                formattedDate = record.date;
+            }
+        }
+
+        // Format check-in time
+        let formattedCheckInTime = "N/A";
+        if (record.checkInTime) {
+            try {
+                const checkInDate = new Date(record.checkInTime);
+                if (!isNaN(checkInDate.getTime())) {
+                    formattedCheckInTime = checkInDate.toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                }
+            } catch (e) {
+                formattedCheckInTime = record.checkInTime;
+            }
+        }
+
+        // Determine registration status
+        let status = "N/A";
+        let statusClass = "";
+        if (record.isRegistered !== undefined) {
+            if (record.isRegistered) {
+                status = "Registered";
+                statusClass = "style='color: var(--success);'";
+            } else {
+                status = "Not Registered";
+                statusClass = "style='color: var(--warning);'";
+            }
+        } else if (record.checkInTime) {
+            // Fallback for old data format
+            status = "Attended";
+            statusClass = "style='color: var(--text-secondary);'";
+        }
+
         tableBody.innerHTML += `
             <tr>
-                <td>${record.eventName || "N/A"}</td>
-                <td>${record.date}</td>
-                <td>${record.checkOutTime ? "Completed" : "Checked-In"}</td>
-                <td>${
-                    record.checkInTime
-                        ? new Date(record.checkInTime).toLocaleTimeString()
-                        : "N/A"
-                }</td>
+                <td>${escapeHtml(record.eventName || "N/A")}</td>
+                <td>${formattedDate}</td>
+                <td ${statusClass}>${status}</td>
+                <td>${formattedCheckInTime}</td>
             </tr>
         `;
     });
+}
+
+// -----------------------------
+// TOGGLE REGISTRATION
+// -----------------------------
+async function toggleRegistration(studentID, eventID, currentlyRegistered) {
+    try {
+        const endpoint = `/students/${studentID}/registrations/${eventID}`;
+        const method = currentlyRegistered ? "DELETE" : "POST";
+        
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: method,
+            headers: { "Content-Type": "application/json" }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || "Failed to update registration");
+        }
+        
+        const result = await response.json();
+        showToast(result.message || (currentlyRegistered ? "Unregistered successfully" : "Registered successfully"), "success");
+        
+        // Re-render the upcoming events to reflect the change
+        await renderStudentUpcomingEvents(studentID, allEvents);
+        
+    } catch (error) {
+        console.error("Registration error:", error);
+        showToast(`Error updating registration: ${error.message || "Could not connect to the API."}`, "error");
+    }
 }
 
 // -----------------------------
@@ -1251,8 +1525,23 @@ function initEventForm() {
             
             // Re-fetch all events and re-render
             const updatedEvents = await fetchData("/events", "events-loading");
-            allEvents = updatedEvents;
+            if (updatedEvents) {
+                allEvents = updatedEvents;
+                console.log("Events updated after creation. Total events:", allEvents.length);
+            }
             renderAllEventViews(allEvents, currentCalendarDate);
+            
+            // If student view is open, refresh it to show the new event
+            const studentContent = document.getElementById("student-dashboard-content");
+            if (studentContent && studentContent.style.display !== "none") {
+                const studentIDInput = document.getElementById("student-id-input");
+                if (studentIDInput && studentIDInput.value) {
+                    // Re-trigger the student lookup to refresh the view
+                    const studentID = studentIDInput.value;
+                    console.log("Refreshing student view for studentID:", studentID);
+                    await refreshStudentView(studentID);
+                }
+            }
 
         } catch (error) {
             console.error("Creation error:", error);
@@ -1380,6 +1669,7 @@ window.toggleEventsList = toggleEventsList;
 window.toggleCreateEventForm = toggleCreateEventForm;
 window.editEvent = editEvent;
 window.deleteEvent = deleteEvent;
+window.toggleRegistration = toggleRegistration;
 window.loadEventAttendance = loadEventAttendance;
 
 // Load and display finalized attendance for an event
@@ -1410,6 +1700,7 @@ async function loadEventAttendance(eventID) {
                 container.innerHTML = `<div style="color: var(--text-muted); font-style: italic;">${data.message || "Event is in progress. Finalize to view attendance data."}</div>`;
                 return;
             }
+    
             
             // If status is "finalized" or has finalized data, show the full information
             const hasRegistered = data?.registered && data.registered.length > 0;
@@ -1725,6 +2016,15 @@ async function editEvent(eventID) {
             allEvents = updatedEvents;
             renderAllEventViews(allEvents, currentCalendarDate);
             
+            // If student view is open, refresh it
+            const studentContent = document.getElementById("student-dashboard-content");
+            if (studentContent && studentContent.style.display !== "none") {
+                const studentIDInput = document.getElementById("student-id-input");
+                if (studentIDInput && studentIDInput.value) {
+                    await refreshStudentView(studentIDInput.value);
+                }
+            }
+            
         } catch (error) {
             console.error("Update error:", error);
             showToast(`Error updating event: ${error.message || "Could not connect to the API."}`, "error");
@@ -1771,6 +2071,15 @@ async function deleteEvent(eventID) {
         const updatedEvents = await fetchData("/events", "events-loading");
         allEvents = updatedEvents;
         renderAllEventViews(allEvents, currentCalendarDate);
+        
+        // If student view is open, refresh it
+        const studentContent = document.getElementById("student-dashboard-content");
+        if (studentContent && studentContent.style.display !== "none") {
+            const studentIDInput = document.getElementById("student-id-input");
+            if (studentIDInput && studentIDInput.value) {
+                await refreshStudentView(studentIDInput.value);
+            }
+        }
         
     } catch (error) {
         console.error("Delete error:", error);

@@ -187,7 +187,7 @@
                         <div class="form-group">
                             <label for="event-description">Description:</label>
                             <textarea id="event-description" maxlength="500" aria-describedby="event-description-hint"></textarea>
-                            <span class="form-hint" id="event-description-hint">Optional. Maximum 500 characters.</span>
+                            <span class="form-hint" id="event-description-hint"></span>
                         </div>
                         <button type="submit" class="btn btn-primary">Create Event</button>
                     </form>
@@ -204,7 +204,7 @@
             <section class="card" style="max-width: 500px; margin: 0 auto;">
                 <h3 class="card-title">Student Lookup</h3>
                 <p class="card-description">
-                    Enter a student ID to view their personal dashboard.
+                    Enter your student ID to view your dashboard.
                 </p>
                 <form id="student-lookup-form">
                     <div class="form-group lookup-group">
@@ -216,18 +216,29 @@
             </section>
 
             <div id="student-dashboard-content" style="display:none;">
-                <p style="text-align: center; font-size: 1.5rem; font-weight: 700; color: var(--accent); margin-bottom: var(--spacing-xl);" id="student-name"></p>
+                <p style="text-align: center; font-size: 1.5rem; font-weight: 700; color: var(--accent); margin-bottom: var(--spacing-lg);" id="student-name"></p>
+
+                <section class="card" style="margin-bottom: var(--spacing-md);">
+                    <div class="card-header" style="padding: var(--spacing-sm) var(--spacing-md);">
+                        <div>
+                            <h3 class="card-title" style="font-size: 0.9375rem; margin-bottom: 2px;">Student Information</h3>
+                            <p class="card-description" style="font-size: 0.75rem; margin: 0;">
+                                Your personal information and contact details.
+                            </p>
+                        </div>
+                    </div>
+                    <div id="student-info-display" style="padding: var(--spacing-xs) var(--spacing-md) var(--spacing-sm);"></div>
+                </section>
 
                 <section class="card">
                     <div class="card-header">
                         <div>
                             <h3 class="card-title">Upcoming Events</h3>
                             <p class="card-description">
-                                Register for future events (mock status only).
+                                Register for future events.
                             </p>
                         </div>
                     </div>
-                    <h3 class="subheading">Upcoming Events</h3>
                     <div id="student-upcoming-events"></div>
                 </section>
 

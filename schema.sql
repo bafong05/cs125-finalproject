@@ -27,17 +27,6 @@ CREATE TABLE Event
     time     TIME        NOT NULL,
     PRIMARY KEY (eventID)
 );
-CREATE TABLE Volunteer
-(
-    volunteerID INT AUTO_INCREMENT,
-    firstName   VARCHAR(30) NOT NULL,
-    lastName    VARCHAR(30) NOT NULL,
-    phoneNumber VARCHAR(20),
-    email       VARCHAR(60),
-    eventID     INT         NOT NULL,
-    PRIMARY KEY (volunteerID),
-    FOREIGN KEY (eventID) REFERENCES Event (eventID) ON DELETE CASCADE
-);
 CREATE TABLE Relationship
 (
     studentID  INT NOT NULL,
@@ -104,12 +93,4 @@ CREATE TABLE Attendance
     PRIMARY KEY (attendanceID),
     FOREIGN KEY (studentID) REFERENCES Student(studentID) ON DELETE CASCADE,
     FOREIGN KEY (eventID)   REFERENCES Event(eventID) ON DELETE CASCADE
-);
-CREATE TABLE EventStaff
-(
-    eventID     INT NOT NULL,
-    volunteerID INT NOT NULL,
-    PRIMARY KEY (eventID, volunteerID),
-    FOREIGN KEY (eventID) REFERENCES Event (eventID) ON DELETE CASCADE,
-    FOREIGN KEY (volunteerID) REFERENCES Volunteer (volunteerID) ON DELETE CASCADE
 );

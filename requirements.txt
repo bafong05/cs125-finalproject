@@ -4,3 +4,5 @@ mysql-connector-python
 pymongo
 python-dotenv
 redis
+strawberry-graphql
+requests

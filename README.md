@@ -1,85 +1,303 @@
-# Final Project
+# Youth Group Database Management System
 **Westmont College Fall 2025**
 
 **CS 125 Database Design**
 
-*Assistant Professor* Mike Ryu (mryu@westmont.edu) 
+*Professor* Mike Ryu (mryu@westmont.edu) 
 
 ## Author Information
-* **Name(s)**: Bailey Fong, James Dodson
+* **Team Name**: Backcourt (Bailey Fong, James Dodson)
 * **Email(s)**: bafong@westmont.edu, jdodson@westmont.edu
 
+1. **Open your terminal in the project root directory and run:**
 
-**Team name:**
-- Backcourt
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-**Who is using this?**
-- James’ church youth group, which has small groups, check-in, attendance, among other things.
+2.  **Set up the Databases:**
 
-**What do they want to do?**
-- Keep track of attendance, live check-in (which may also be useful for events), small groups, and record small group summaries
+    You need to run the setup scripts to populate the databases with sample data.
 
-**What should they be able to do?**
-- Update/change student information, event information, small group info (members, leader(s))
+    *   **MySQL:** Make sure your MySQL server is running and that you have created the `youth_group` database and its tables by executing the `schema.sql` script, then populate it with sample data using `data.sql`.
 
-**What shouldn’t they be able to do?**
-- Change date-specific small-group info (for example, notes that were taken and attendance that day)
-- Change attendance after the day it’s recorded
-- Delete past information (events, attendance)
+    *   **MongoDB:** Run the MongoDB setup script:
 
-**11/25/25:**  
-Using Python, we create a connection to our database in Insomnia, and then create a cursor, and by entering in the SQL commands as a string, we can execute any SQL query we want, but we then have to gather and print the results afterwards. However, this means that we can sort all of our data by any metric we want, and get as specific as we need to. Lastly, both the cursor and connection need to be closed so that resources aren't wasted keeping them open for no reason.
+        ```bash
+        python3 setup_mongo.py
+        ```
 
-To spin up the server:
-- Start the existing MySQL container
-- Load the database schema and data
-- Start the API: python3 executor.py
-- Use Insomnia to test the server: GET request http://127.0.0.1:5000/students
+    *   **Redis:** Redis will be used automatically for live attendance tracking. Make sure your Redis server is running.
 
-In browser:
-- http://127.0.0.1:5000/ returns all table names
-- http://127.0.0.1:5000/<table_name> returns rows from specific table
+3.  **Set up Secrets:**
 
-**12/5/25:**  
-Technologies used:
-- FastAPI —> main backend framework
-- MySQL —> primary relational database
-- MongoDB —> stores custom event data + walk-ins
-- Redis —> real-time check-in / check-out tracking
-  
-*Event data:*
-- Core event info is stored in MySQL (Event(eventID, name, location, date, time))
-- Custom event fields are stored in MongoDB
-  - Example MongoDB document:  
-    {"eventID": 1001,  
-    "customFields": {  
-        "packingList": ["sleeping bag", "water bottle"],  
-        "bringFriend": true}}  
-    
-*Endpoints:*  
-- POST /events
-  - Creates the MySQL event
-  - Stores optional customFields in MongoDB
-- GET /events/{event_id}
-  - Returns merged MySQL + MongoDB data
+    Create a `secrets` directory in the project root and add a file named `mysql_password.txt` containing your MySQL root password.
 
-*Event attendance:*  
-- Redis tracks live attendance with check ins and check outs
-  
-*Endpoints:*  
-- POST /events/{event_id}/checkin/{student_id}
-  - Adds a student to checkedIn and attendees sets
-- POST /events/{event_id}/checkout/{student_id}
-  - Removes student from checkedIn but keeps them in attendees set
-- GET /events/{event_id}/live
-  - Returns students currently present
-- POST /events/{event_id}/finalize
-  - At the end of an event, all attendance is permanently saved
-    - Registered attendees are saved to MySQL Attendance
-    - Walk-ins are stored in a MongoDB walk_ins
-    - Redis keys are deleted
-   
-To run:
-1. pip install -r requirements.txt
-2. uvicorn main:app --reload --port 8000
-3. http://127.0.0.1:8000/docs
+4.  **Run the FastAPI Server:**
+
+    Start the application from the project root:
+
+    ```bash
+    uvicorn main:app --reload --port 8000
+    ```
+
+5.  **Access the Demo:**
+
+    *   Open your web browser and go to **http://127.0.0.1:8000** to see the Youth Group Dashboard (frontend is in `youth_group_frontend/index.html`).
+
+    *   Go to **http://127.0.0.1:8000/graphql** to interact with the GraphQL API via the GraphiQL interface.
+
+    *   Go to **http://127.0.0.1:8000/docs** to see the REST API documentation.
+
+## Running the Backend in Docker
+
+1.  **Build the Docker Image:**
+
+    From the project root directory, run the `docker build` command:
+
+    ```bash
+    docker build -t youth-group-api .
+    ```
+
+2.  **Run the Docker Container:**
+
+    The command to run the container differs slightly depending on your operating system due to how Docker networking is handled.
+
+    **For Docker Desktop (macOS or Windows):**
+
+    Docker Desktop provides a special DNS name `host.docker.internal` that containers can use to connect to services running on the host machine. The `Dockerfile` is already configured to use this.
+
+    Execute this command from your project root:
+
+    ```bash
+    docker run --rm -it \
+      -p 8000:8000 \
+      -v "$(pwd)/secrets:/app/secrets" \
+      youth-group-api
+    ```
+3.  **Access the Demo:**
+
+    Once the container is running, the API and demo page are available at the same URLs as before:
+
+    *   **Dashboard:** http://127.0.0.1:8000
+    *   **GraphQL API:** http://127.0.0.1:8000/graphql
+    *   **REST API Docs:** http://127.0.0.1:8000/docs
+
+## Sample GraphQL Queries
+
+Here are some example queries you can run in the GraphiQL interface (available at `http://127.0.0.1:8000/graphql`) to see how the API works.
+
+---
+
+### Query 1: Get All Students (Basic)
+
+This query fetches a list of all students, but only asks for their first and last names. This demonstrates GraphQL's ability to select only the data you need.
+
+```graphql
+query GetAllStudents {
+  students {
+    firstName
+    lastName
+  }
+}
+```
+
+---
+
+### Query 2: Get a Single Student by ID
+
+This query uses an argument (`student_id`) to fetch a specific student. You can change the `student_id` value in GraphiQL to get different results.
+
+```graphql
+query GetStudentById {
+  student(studentId: 1) {
+    studentID
+    firstName
+    lastName
+    age
+    email
+    guardians
+  }
+}
+```
+
+---
+
+### Query 3: The "Trifecta" - Live Attendance
+
+This query showcases the power of GraphQL to fetch complex, nested data from multiple sources (Redis, MySQL, MongoDB) in a single request. It retrieves live attendance data that combines Redis (current check-ins), MySQL (registered students), and MongoDB (walk-ins).
+
+```graphql
+query GetLiveAttendance {
+  liveAttendance(eventId: 1) {
+    eventID
+    checkedInCount
+    checkedInStudents {
+      studentID
+      firstName
+      lastName
+    }
+  }
+}
+```
+
+---
+
+### Query 4: Get Finalized Attendance
+
+This query retrieves finalized attendance data that combines MySQL (registered attendees) and MongoDB (walk-ins) after an event has been finalized.
+
+```graphql
+query GetFinalizedAttendance {
+  finalizedAttendance(eventId: 1) {
+    eventID
+    eventName
+    totalAttendees
+    totalRegistered
+    totalWalkIns
+    registered {
+      studentID
+      firstName
+      lastName
+    }
+    walkIns {
+      studentID
+      firstName
+      lastName
+    }
+  }
+}
+```
+
+---
+
+### Query 5: Using Aliases
+
+Aliases let you rename the result of a field to anything you want. This is useful for fetching the same type of object with different arguments in a single query.
+
+```graphql
+query GetMultipleStudents {
+  firstStudent: student(studentId: 1) {
+    studentID
+    firstName
+    lastName
+  }
+  secondStudent: student(studentId: 2) {
+    studentID
+    firstName
+    lastName
+  }
+}
+```
+
+---
+
+### Query 6: Get Events with Custom Fields
+
+This query fetches all events, including their custom fields stored in MongoDB. This demonstrates how GraphQL can seamlessly combine data from MySQL (core event info) and MongoDB (custom fields).
+
+```graphql
+query GetEventsWithCustomFields {
+  events {
+    eventID
+    name
+    location
+    date
+    time
+    customFields
+  }
+}
+```
+
+---
+
+### Query 7: Using Fragments
+
+Fragments are reusable sets of fields. They help you avoid repeating the same fields in multiple places. Here, we define a fragment `studentFields` and use it in multiple queries.
+
+```graphql
+query GetStudentsAndGroups {
+  students {
+    ...studentFields
+  }
+  groups {
+    groupID
+    name
+    members {
+      ...studentFields
+    }
+  }
+}
+
+fragment studentFields on Student {
+  studentID
+  firstName
+  lastName
+  age
+  email
+}
+```
+
+---
+
+### Mutation 1: Create an Event
+
+This mutation creates a new event with custom fields stored in MongoDB.
+
+```graphql
+mutation CreateEvent {
+  createEvent(
+    name: "Summer Camp"
+    location: "Beachside Park"
+    date: "2026-07-15"
+    time: "09:00:00"
+    customFields: {
+      packingList: ["sleeping bag", "water bottle", "Bible"]
+      bringFriend: true
+    }
+  ) {
+    message
+    event {
+      eventID
+      name
+      location
+      customFields
+    }
+  }
+}
+```
+
+---
+
+### Mutation 2: Check In a Student
+
+This mutation checks in a student for an event, updating Redis in real-time.
+
+```graphql
+mutation CheckInStudent {
+  checkIn(eventId: 1, studentId: 1) {
+    message
+    eventID
+    studentID
+    checkedIn
+  }
+}
+```
+
+---
+
+### Mutation 3: Finalize an Event
+
+This mutation finalizes an event, moving attendance data from Redis to permanent storage in MySQL (registered attendees) and MongoDB (walk-ins).
+
+```graphql
+mutation FinalizeEvent {
+  finalizeEvent(eventId: 1) {
+    message
+    eventID
+    totalRegistered
+    totalWalkIns
+    totalAttendees
+  }
+}
+```

@@ -22,7 +22,7 @@
                 </button>
                 <button id="student-mode-btn" class="nav-tab" data-view="student" aria-selected="false" role="tab">
                     <span>👤</span>
-                    <span>Student View</span>
+                    <span>Student Dashboard</span>
                 </button>
             </nav>
         </aside>
@@ -193,13 +193,70 @@
                     </form>
                 </div>
             </section>
+            
+            <!-- GRAPHQL EXPLORER SECTION -->
+            <section class="card">
+                <div class="card-header">
+                    <div>
+                        <h3 class="card-title">GraphQL Explorer</h3>
+                        <p class="card-description">
+                            A simple tool to interact with the GraphQL API directly.
+                        </p>
+                    </div>
+                </div>
+                <button class="btn btn-toggle btn-sm" id="graphql-explorer-toggle-btn" aria-expanded="false" aria-controls="graphql-explorer-section">
+                    Show Explorer ▼
+                </button>
+                <div id="graphql-explorer-section" style="display:none;">
+                    <div style="margin-bottom: var(--spacing-md);">
+                        <label for="graphql-query" style="display: block; margin-bottom: var(--spacing-sm); font-weight: 600; color: var(--text-primary);">
+                            Query
+                        </label>
+                        <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: var(--spacing-sm);">
+                            Enter your GraphQL query below and click "Execute". An example query is pre-filled for you.
+                        </p>
+                        <textarea 
+                            id="graphql-query" 
+                            rows="12" 
+                            style="width: 100%; padding: var(--spacing-md); border: 2px solid var(--border); border-radius: var(--radius-md); font-family: 'Courier New', monospace; font-size: 0.875rem; resize: vertical;"
+                            placeholder="Enter your GraphQL query here..."
+                        >query {
+  students {
+    studentID
+    firstName
+    lastName
+    age
+    groupID
+  }
+}</textarea>
+                    </div>
+                    <div style="display: flex; gap: var(--spacing-sm); margin-bottom: var(--spacing-md);">
+                        <button id="graphql-execute-btn" class="btn btn-primary" style="flex: 1;">
+                            Execute Query
+                        </button>
+                        <button id="graphql-clear-btn" class="btn btn-secondary">
+                            Clear
+                        </button>
+                    </div>
+                    <div id="graphql-loading" class="loading" style="display:none;">
+                        <div class="spinner"></div>
+                        <span>Executing query...</span>
+                    </div>
+                    <div id="graphql-result" style="display:none;">
+                        <label style="display: block; margin-bottom: var(--spacing-sm); font-weight: 600; color: var(--text-primary);">
+                            Result
+                        </label>
+                        <pre id="graphql-result-content" style="background: var(--bg-tertiary); padding: var(--spacing-md); border-radius: var(--radius-md); border: 2px solid var(--border); overflow-x: auto; font-family: 'Courier New', monospace; font-size: 0.875rem; max-height: 500px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;"></pre>
+                    </div>
+                </div>
+            </section>
         </div>
 
         <!-- EVENT DETAILS POPUP -->
         <div id="popup-backdrop" class="popup-backdrop" style="display:none;" aria-hidden="true"></div>
         <div id="event-details-popup" class="event-details-popup" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="popup-event-title"></div>
 
-        <!-- STUDENT VIEW -->
+        <!-- STUDENT DASHBOARD -->
         <div id="student-view" style="display:none;">
             <section class="card" style="max-width: 500px; margin: 0 auto;">
                 <h3 class="card-title">Student Lookup</h3>

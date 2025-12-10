@@ -26,8 +26,8 @@ VALUES
 -- ============================
 INSERT INTO SmallGroup (name)
 VALUES 
- ('Middle School A'),
- ('High School A');
+ ('Middle School'),
+ ('High School');
 
 -- Capture IDs
 SET @Group101 = 1;

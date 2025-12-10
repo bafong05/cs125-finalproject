@@ -59,8 +59,7 @@ def setup_event_data():
         {
             "eventID": 6,
             "customFields": {
-                "donationItems": ["canned food", "blankets"],
-                "volunteersNeeded": 12
+                "donationItems": ["canned food", "blankets"]
             }
         }
     ]

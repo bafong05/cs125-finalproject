@@ -120,7 +120,7 @@ function switchView(mode) {
         studentBtn.setAttribute("aria-selected", "true");
         leaderBtn.classList.remove("active");
         leaderBtn.setAttribute("aria-selected", "false");
-        if (pageTitle) pageTitle.textContent = "Student View";
+        if (pageTitle) pageTitle.textContent = "Student Dashboard";
     }
 }
 
@@ -848,6 +848,115 @@ function initCreateEventToggle() {
     }
 }
 
+// -----------------------------
+// GraphQL Explorer
+// -----------------------------
+function toggleGraphQLExplorer() {
+    const container = document.getElementById("graphql-explorer-section");
+    const btn = document.getElementById("graphql-explorer-toggle-btn");
+
+    if (container.style.display === "none" || container.style.display === "") {
+        container.style.display = "block";
+        btn.innerHTML = "Hide Explorer ▲";
+        btn.setAttribute("aria-expanded", "true");
+    } else {
+        container.style.display = "none";
+        btn.innerHTML = "Show Explorer ▼";
+        btn.setAttribute("aria-expanded", "false");
+    }
+}
+
+function initGraphQLExplorer() {
+    const toggleBtn = document.getElementById("graphql-explorer-toggle-btn");
+    if (toggleBtn) {
+        toggleBtn.addEventListener("click", toggleGraphQLExplorer);
+    }
+    
+    const executeBtn = document.getElementById("graphql-execute-btn");
+    const clearBtn = document.getElementById("graphql-clear-btn");
+    const queryTextarea = document.getElementById("graphql-query");
+    const resultDiv = document.getElementById("graphql-result");
+    const resultContent = document.getElementById("graphql-result-content");
+    const loadingDiv = document.getElementById("graphql-loading");
+    
+    if (executeBtn) {
+        executeBtn.addEventListener("click", async () => {
+            const query = queryTextarea?.value.trim();
+            if (!query) {
+                showToast("Please enter a GraphQL query", "error");
+                return;
+            }
+            
+            // Show loading
+            if (loadingDiv) loadingDiv.style.display = "flex";
+            if (resultDiv) resultDiv.style.display = "none";
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/graphql`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        query: query
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                // Display result
+                if (resultContent) {
+                    resultContent.textContent = JSON.stringify(result, null, 2);
+                }
+                if (resultDiv) {
+                    resultDiv.style.display = "block";
+                }
+                
+                // Check for GraphQL errors
+                if (result.errors) {
+                    showToast("GraphQL query returned errors. Check the result panel.", "error");
+                } else {
+                    showToast("Query executed successfully!", "success");
+                }
+                
+            } catch (error) {
+                console.error("GraphQL query error:", error);
+                if (resultContent) {
+                    resultContent.textContent = `Error: ${error.message}`;
+                }
+                if (resultDiv) {
+                    resultDiv.style.display = "block";
+                }
+                showToast(`Query failed: ${error.message}`, "error");
+            } finally {
+                if (loadingDiv) loadingDiv.style.display = "none";
+            }
+        });
+    }
+    
+    if (clearBtn) {
+        clearBtn.addEventListener("click", () => {
+            if (queryTextarea) {
+                queryTextarea.value = `query {
+  students {
+    studentID
+    firstName
+    lastName
+    age
+    groupID
+  }
+}`;
+            }
+            if (resultDiv) resultDiv.style.display = "none";
+            if (resultContent) resultContent.textContent = "";
+        });
+    }
+}
+
 function renderAllEventViews(events, date = currentCalendarDate) {
     renderEventList(events);
 }
@@ -1057,7 +1166,7 @@ function renderCalendar(events, date = currentCalendarDate) {
 }
 
 // -----------------------------
-// STUDENT VIEW FUNCTIONS
+// STUDENT DASHBOARD FUNCTIONS
 // -----------------------------
 async function handleStudentLookup(e) {
     e.preventDefault();
@@ -1126,59 +1235,59 @@ function renderStudentInfo(student) {
     const groupName = group ? escapeHtml(group.name) : `Group ${student.groupID}`;
 
     container.innerHTML = `
-        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm) var(--spacing-md); font-size: 0.75rem; line-height: 1.4;">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm) var(--spacing-md); font-size: 0.9375rem; line-height: 1.5;">
             <span>
-                <strong style="color: var(--text-primary); font-size: 0.6875rem;">ID:</strong>
-                <span style="color: var(--text-secondary); font-size: 0.75rem; margin-left: 2px;" id="student-info-id">${student.studentID}</span>
+                <strong style="color: var(--text-primary); font-size: 0.875rem;">ID:</strong>
+                <span style="color: var(--text-secondary); font-size: 0.9375rem; margin-left: 4px;" id="student-info-id">${student.studentID}</span>
             </span>
             <span style="color: var(--border);">|</span>
             <span>
-                <strong style="color: var(--text-primary); font-size: 0.6875rem;">Name:</strong>
-                <span style="color: var(--text-secondary); font-size: 0.75rem; margin-left: 2px;" id="student-info-name">${escapeHtml((student.firstName || "") + " " + (student.lastName || "")).trim() || "N/A"}</span>
+                <strong style="color: var(--text-primary); font-size: 0.875rem;">Name:</strong>
+                <span style="color: var(--text-secondary); font-size: 0.9375rem; margin-left: 4px;" id="student-info-name">${escapeHtml((student.firstName || "") + " " + (student.lastName || "")).trim() || "N/A"}</span>
             </span>
             <span style="color: var(--border);">|</span>
             <span>
-                <strong style="color: var(--text-primary); font-size: 0.6875rem;">Age:</strong>
-                <span style="color: var(--text-secondary); font-size: 0.75rem; margin-left: 2px;" id="student-info-age">${student.age || "N/A"}</span>
+                <strong style="color: var(--text-primary); font-size: 0.875rem;">Age:</strong>
+                <span style="color: var(--text-secondary); font-size: 0.9375rem; margin-left: 4px;" id="student-info-age">${student.age || "N/A"}</span>
             </span>
             <span style="color: var(--border);">|</span>
             <span>
-                <strong style="color: var(--text-primary); font-size: 0.6875rem;">Phone:</strong>
-                <span style="color: var(--text-secondary); font-size: 0.75rem; margin-left: 2px;" id="student-info-phone">${escapeHtml(student.phone || student.phoneNumber || "N/A")}</span>
+                <strong style="color: var(--text-primary); font-size: 0.875rem;">Phone:</strong>
+                <span style="color: var(--text-secondary); font-size: 0.9375rem; margin-left: 4px;" id="student-info-phone">${escapeHtml(student.phone || student.phoneNumber || "N/A")}</span>
             </span>
             <span style="color: var(--border);">|</span>
             <span>
-                <strong style="color: var(--text-primary); font-size: 0.6875rem;">Email:</strong>
-                <span style="color: var(--text-secondary); font-size: 0.75rem; margin-left: 2px;" id="student-info-email">${escapeHtml(student.email || "N/A")}</span>
+                <strong style="color: var(--text-primary); font-size: 0.875rem;">Email:</strong>
+                <span style="color: var(--text-secondary); font-size: 0.9375rem; margin-left: 4px;" id="student-info-email">${escapeHtml(student.email || "N/A")}</span>
             </span>
             <span style="color: var(--border);">|</span>
             <span>
-                <strong style="color: var(--text-primary); font-size: 0.6875rem;">Group:</strong>
-                <span style="color: var(--text-secondary); font-size: 0.75rem; margin-left: 2px;">${groupName}</span>
+                <strong style="color: var(--text-primary); font-size: 0.875rem;">Group:</strong>
+                <span style="color: var(--text-secondary); font-size: 0.9375rem; margin-left: 4px;">${groupName}</span>
             </span>
             ${guardians.length > 0 ? `
                 <span style="color: var(--border);">|</span>
                 <span>
-                    <strong style="color: var(--text-primary); font-size: 0.6875rem;">Guardian(s):</strong>
-                    <span style="color: var(--text-secondary); font-size: 0.75rem; margin-left: 2px;">${guardianList}</span>
+                    <strong style="color: var(--text-primary); font-size: 0.875rem;">Guardian(s):</strong>
+                    <span style="color: var(--text-secondary); font-size: 0.9375rem; margin-left: 4px;">${guardianList}</span>
                 </span>
             ` : ''}
         </div>
     `;
 }
 
-// Helper function to refresh student view (used when events are updated)
+// Helper function to refresh student dashboard (used when events are updated)
 async function refreshStudentView(studentID) {
     const contentDiv = document.getElementById("student-dashboard-content");
     if (!contentDiv || contentDiv.style.display === "none") {
-        return; // Student view not currently visible
+        return; // Student dashboard not currently visible
     }
     
     // Refresh events
     const refreshedEvents = await fetchData("/events", null);
     allEvents = refreshedEvents || allEvents;
     
-    // Re-render the student view
+    // Re-render the student dashboard
     await renderStudentUpcomingEvents(studentID, allEvents);
     
     // Note: We don't refresh attendance history as it doesn't change when events are created
@@ -1490,10 +1599,17 @@ function initEventForm() {
         }
 
         const description = document.getElementById("event-description").value.trim();
+        const timeValue = document.getElementById("event-time").value;
+        
+        // Ensure time is in HH:MM:SS format for MySQL
+        const timeFormatted = timeValue.includes(':') && timeValue.split(':').length === 2 
+            ? `${timeValue}:00` 
+            : timeValue;
+        
         const newEvent = {
             name: document.getElementById("event-name").value.trim(),
             date: document.getElementById("event-date").value,
-            time: document.getElementById("event-time").value,
+            time: timeFormatted,
             location: document.getElementById("event-location").value.trim(),
             customFields: description ? {
                 description: description
@@ -1501,18 +1617,32 @@ function initEventForm() {
         };
 
         try {
+            console.log("Creating event:", newEvent);
+            console.log("API URL:", `${API_BASE_URL}/events`);
+            
             const response = await fetch(`${API_BASE_URL}/events`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newEvent)
             });
 
+            console.log("Response status:", response.status, response.statusText);
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`Failed to create event: ${errorData.detail || "Unknown error"}`);
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.detail || errorMessage;
+                } catch (e) {
+                    // If response isn't JSON, use status text
+                    const text = await response.text();
+                    if (text) errorMessage = text;
+                }
+                throw new Error(`Failed to create event: ${errorMessage}`);
             }
             
             const result = await response.json();
+            console.log("Event created successfully:", result);
             
             this.reset();
             // Clear error messages
@@ -1531,21 +1661,30 @@ function initEventForm() {
             }
             renderAllEventViews(allEvents, currentCalendarDate);
             
-            // If student view is open, refresh it to show the new event
+            // If student dashboard is open, refresh it to show the new event
             const studentContent = document.getElementById("student-dashboard-content");
             if (studentContent && studentContent.style.display !== "none") {
                 const studentIDInput = document.getElementById("student-id-input");
                 if (studentIDInput && studentIDInput.value) {
                     // Re-trigger the student lookup to refresh the view
                     const studentID = studentIDInput.value;
-                    console.log("Refreshing student view for studentID:", studentID);
+                    console.log("Refreshing student dashboard for studentID:", studentID);
                     await refreshStudentView(studentID);
                 }
             }
 
         } catch (error) {
             console.error("Creation error:", error);
-            showToast(`Error creating event: ${error.message || "Could not connect to the API."}`, "error");
+            let errorMsg = error.message || "Could not connect to the API.";
+            
+            // Provide more helpful error messages
+            if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
+                errorMsg = "Cannot connect to server. Make sure the API is running at " + API_BASE_URL;
+            } else if (error.message.includes("CORS")) {
+                errorMsg = "CORS error: Server may not be configured to allow requests from this origin.";
+            }
+            
+            showToast(`Error creating event: ${errorMsg}`, "error");
         }
     });
 }
@@ -1563,6 +1702,7 @@ async function init() {
         initCreateEventToggle();
         initPopupCloseHandlers();
         initEventForm();
+        initGraphQLExplorer();
         
         const lookupForm = document.getElementById("student-lookup-form");
         if (lookupForm) {
@@ -2016,7 +2156,7 @@ async function editEvent(eventID) {
             allEvents = updatedEvents;
             renderAllEventViews(allEvents, currentCalendarDate);
             
-            // If student view is open, refresh it
+            // If student dashboard is open, refresh it
             const studentContent = document.getElementById("student-dashboard-content");
             if (studentContent && studentContent.style.display !== "none") {
                 const studentIDInput = document.getElementById("student-id-input");

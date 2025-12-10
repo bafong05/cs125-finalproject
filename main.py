@@ -1,14 +1,20 @@
 # main.py
 
+import sys
 import os
 import mysql.connector
 import redis
 from datetime import datetime
+from contextlib import asynccontextmanager
 from pymongo import MongoClient
 from fastapi import FastAPI, HTTPException, Body
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from typing import Optional, Dict, Any
 from fastapi.middleware.cors import CORSMiddleware
-from strawberry.fastapi import GraphQLRouter
+
+# Guard to prevent circular import when GraphQL schema imports from main
+GRAPHQL_IMPORT = "graphql_schema" in sys.modules
 
 # ====================================================================
 #  SECRET LOADER
@@ -37,42 +43,100 @@ def mysql_connect():
         database=DB_NAME
     )
 
-# MongoDB
-mongo_client = MongoClient(
-    load_secret("mongo_url"),
-    tls=True,
-    tlsAllowInvalidCertificates=True
-)
-mongo_db = mongo_client["youth_group"]
+# ====================================================================
+#  DATABASE CONNECTION VARIABLES (initialized in lifespan)
+# ====================================================================
+mongo_client = None
+mongo_db = None
+redis_client = None
 
-# Redis
-redis_client = redis.Redis(
-    host="redis-13814.c258.us-east-1-4.ec2.cloud.redislabs.com",
-    port=13814,
-    password=load_secret("redis_password"),
-    decode_responses=True
-)
+# ====================================================================
+#  DATABASE CONNECTION FUNCTIONS
+# ====================================================================
+def get_mongo_db():
+    """Get MongoDB database instance"""
+    global mongo_db
+    if mongo_db is None:
+        raise RuntimeError("MongoDB not initialized. Call get_mongo_client() first.")
+    return mongo_db
+
+def get_redis_conn():
+    """Get Redis connection"""
+    global redis_client
+    if redis_client is None:
+        raise RuntimeError("Redis not initialized. Call get_redis_client() first.")
+    return redis_client
+
+# ====================================================================
+#  LIFESPAN MANAGEMENT
+# ====================================================================
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application startup and shutdown"""
+    global mongo_client, mongo_db, redis_client
+    
+    # Startup: Initialize database connections
+    print("Application startup: Initializing database connections...")
+    
+    # MongoDB
+    mongo_client = MongoClient(
+        load_secret("mongo_url"),
+        tls=True,
+        tlsAllowInvalidCertificates=True
+    )
+    mongo_db = mongo_client["youth_group"]
+    
+    # Redis
+    redis_client = redis.Redis(
+        host="redis-13814.c258.us-east-1-4.ec2.cloud.redislabs.com",
+        port=13814,
+        password=load_secret("redis_password"),
+        decode_responses=True
+    )
+    
+    print("Database connections initialized successfully.")
+    
+    yield
+    
+    # Shutdown: Close database connections
+    print("Application shutdown: Closing database connections...")
+    if mongo_client:
+        mongo_client.close()
+    if redis_client:
+        redis_client.close()
+    print("Database connections closed.")
 
 # ====================================================================
 #  FASTAPI SETUP
 # ====================================================================
 app = FastAPI(
     title="Youth Group API",
-    description="Youth group system using MySQL + MongoDB + Redis."
+    description="Youth group system using MySQL + MongoDB + Redis.",
+    lifespan=lifespan
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # This should allow null origin, but browsers are strict
     allow_headers=["*"],
     allow_methods=["*"],
     allow_credentials=True,
 )
 
+# Add OPTIONS handler for preflight requests from file://
+@app.options("/{full_path:path}")
+async def options_handler(full_path: str):
+    """Handle CORS preflight requests"""
+    from fastapi.responses import Response
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
-# ====================================================================
-#  HELPERS & CORE FUNCTIONS (USED BY REST + GRAPHQL)
-# ====================================================================
 
 def list_tables():
     db = mysql_connect()
@@ -107,7 +171,6 @@ def get_all_students():
 
         students = []
         for r in rows:
-            # Format guardians as strings (frontend expects array of strings)
             guardians = []
             if r["g1_first"]:
                 guardians.append(f"{r['g1_first']} {r['g1_last']}")
@@ -206,10 +269,15 @@ def create_event(event_data: dict):
         # Store customFields in MongoDB if provided
         custom_fields = event_data.get("customFields", {})
         if custom_fields:
-            mongo_db["event_data"].insert_one({
-                "eventID": event_id,
-                "customFields": custom_fields
-            })
+            try:
+                mongo = get_mongo_db()
+                mongo["event_data"].insert_one({
+                    "eventID": event_id,
+                    "customFields": custom_fields
+                })
+            except Exception as mongo_err:
+                # Log but don't fail the event creation if MongoDB fails
+                print(f"Warning: Failed to store customFields in MongoDB: {mongo_err}")
         
         cursor.close()
         db.close()
@@ -237,9 +305,10 @@ def get_all_events():
         db.close()
 
         # Attach custom fields from Mongo
+        db = get_mongo_db()
         for e in events:
             try:
-                doc = mongo_db["event_data"].find_one({"eventID": e["eventID"]}, {"_id": 0})
+                doc = db["event_data"].find_one({"eventID": e["eventID"]}, {"_id": 0})
                 e["customFields"] = doc["customFields"] if doc else {}
             except Exception as mongo_err:
                 print(f"MongoDB error for event {e['eventID']}: {mongo_err}")
@@ -266,7 +335,8 @@ def get_event_data(event_id: int):
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    doc = mongo_db["event_data"].find_one({"eventID": event_id}, {"_id": 0})
+    db = get_mongo_db()
+    doc = db["event_data"].find_one({"eventID": event_id}, {"_id": 0})
     event["customFields"] = doc["customFields"] if doc else {}
 
     return event
@@ -301,32 +371,28 @@ def update_event(event_id: int, event_data: dict):
         
         db.commit()
         
-        # Update customFields in MongoDB
         custom_fields = event_data.get("customFields", {})
-        existing_doc = mongo_db["event_data"].find_one({"eventID": event_id})
+        mongo = get_mongo_db()
+        existing_doc = mongo["event_data"].find_one({"eventID": event_id})
         
         if custom_fields:
             if existing_doc:
-                # Update existing document
-                mongo_db["event_data"].update_one(
+                mongo["event_data"].update_one(
                     {"eventID": event_id},
                     {"$set": {"customFields": custom_fields}}
                 )
             else:
-                # Create new document
-                mongo_db["event_data"].insert_one({
+                mongo["event_data"].insert_one({
                     "eventID": event_id,
                     "customFields": custom_fields
                 })
         else:
-            # Remove customFields if empty
             if existing_doc:
-                mongo_db["event_data"].delete_one({"eventID": event_id})
+                mongo["event_data"].delete_one({"eventID": event_id})
         
         cursor.close()
         db.close()
         
-        # Return the updated event
         return get_event_data(event_id)
         
     except HTTPException:
@@ -357,8 +423,9 @@ def delete_event(event_id: int):
         db.commit()
         
         # Delete from MongoDB
-        mongo_db["event_data"].delete_many({"eventID": event_id})
-        mongo_db["walk_ins"].delete_many({"eventID": event_id})
+        mongo = get_mongo_db()
+        mongo["event_data"].delete_many({"eventID": event_id})
+        mongo["walk_ins"].delete_many({"eventID": event_id})
         
         cursor.close()
         db.close()
@@ -414,7 +481,8 @@ def get_student_attendance_history(student_id: int):
         registered_records = cursor.fetchall()
         
         # Get walk-ins from MongoDB
-        walk_ins = list(mongo_db["walk_ins"].find({"studentID": student_id}, {"_id": 0}))
+        mongo = get_mongo_db()
+        walk_ins = list(mongo["walk_ins"].find({"studentID": student_id}, {"_id": 0}))
         
         # Get event IDs for walk-ins to fetch event details in one query
         walk_in_event_ids = [w.get("eventID") for w in walk_ins if w.get("eventID")]
@@ -510,19 +578,21 @@ def check_in(event_id: int, student_id: int):
     db.close()
 
     # Redis SET add - add to both checkedIn (current) and attendees (all-time)
-    redis_client.sadd(CHECKED_IN_KEY(event_id), str(student_id))
-    redis_client.sadd(ATTENDEES_KEY(event_id), str(student_id))  # Track all attendees
+    r = get_redis_conn()
+    r.sadd(CHECKED_IN_KEY(event_id), str(student_id))
+    r.sadd(ATTENDEES_KEY(event_id), str(student_id))  # Track all attendees
 
     return {"message": "checked in", "eventID": event_id, "studentID": student_id}
 
 
 
 def check_out(event_id: int, student_id: int):
-    if not redis_client.sismember(CHECKED_IN_KEY(event_id), str(student_id)):
+    r = get_redis_conn()
+    if not r.sismember(CHECKED_IN_KEY(event_id), str(student_id)):
         raise HTTPException(status_code=400, detail="Student is not checked in")
 
     # Remove from checkedIn but keep in attendees (so they're still counted in total)
-    redis_client.srem(CHECKED_IN_KEY(event_id), str(student_id))
+    r.srem(CHECKED_IN_KEY(event_id), str(student_id))
     # Note: We DON'T remove from ATTENDEES_KEY - they still count as attendees
 
     return {"message": "checked out", "eventID": event_id, "studentID": student_id}
@@ -530,7 +600,8 @@ def check_out(event_id: int, student_id: int):
 
 
 def live_attendance(event_id: int):
-    raw = redis_client.smembers(CHECKED_IN_KEY(event_id))
+    r = get_redis_conn()
+    raw = r.smembers(CHECKED_IN_KEY(event_id))
     ids = sorted(int(x) for x in raw)
 
     # Fetch student names from MySQL
@@ -589,12 +660,14 @@ def finalize_event(event_id: int):
         raise HTTPException(status_code=404, detail="Event not found")
 
     # Pull attendance from Redis - use ATTENDEES_KEY to get ALL who checked in (including those who checked out)
-    redis_raw = redis_client.smembers(ATTENDEES_KEY(event_id))
+    r = get_redis_conn()
+    redis_raw = r.smembers(ATTENDEES_KEY(event_id))
     attendees = sorted(int(x) for x in redis_raw)
 
     # Clear previous finalization
     cur.execute("DELETE FROM Attendance WHERE eventID=%s;", (event_id,))
-    mongo_db["walk_ins"].delete_many({"eventID": event_id})
+    mongo = get_mongo_db()
+    mongo["walk_ins"].delete_many({"eventID": event_id})
 
     registered = []
     walk_ins = []
@@ -620,9 +693,9 @@ def finalize_event(event_id: int):
             registered.append(sid)
         else:
             # Check if walk-in already exists in MongoDB
-            existing_walkin = mongo_db["walk_ins"].find_one({"eventID": event_id, "studentID": sid})
+            existing_walkin = mongo["walk_ins"].find_one({"eventID": event_id, "studentID": sid})
             if not existing_walkin:  # Only insert if not already there
-                mongo_db["walk_ins"].insert_one({
+                mongo["walk_ins"].insert_one({
                     "eventID": event_id,
                     "studentID": sid,
                     "checkInTime": datetime.now()
@@ -634,8 +707,9 @@ def finalize_event(event_id: int):
     db.close()
 
     # Clear Redis keys
-    redis_client.delete(CHECKED_IN_KEY(event_id))
-    redis_client.delete(ATTENDEES_KEY(event_id))
+    r = get_redis_conn()
+    r.delete(CHECKED_IN_KEY(event_id))
+    r.delete(ATTENDEES_KEY(event_id))
 
     return {
         "message": "Event finalized successfully",
@@ -676,7 +750,8 @@ def get_finalized_attendance_view(event_id: int):
     registered = cur.fetchall()
 
     # Load walk-ins from MongoDB (deduplicate by studentID, keep earliest checkInTime)
-    walkins_raw = list(mongo_db["walk_ins"].find({"eventID": event_id}, {"_id": 0}))
+    mongo = get_mongo_db()
+    walkins_raw = list(mongo["walk_ins"].find({"eventID": event_id}, {"_id": 0}))
     
     # Deduplicate walk-ins by studentID, keeping the earliest checkInTime
     walkins_dict = {}
@@ -722,7 +797,8 @@ def get_finalized_attendance_view(event_id: int):
     
     # Check if event has been started (has any data in Redis or finalized data)
     # Check both checkedIn (current) and attendees (all-time) sets
-    has_redis_data = redis_client.exists(CHECKED_IN_KEY(event_id)) or redis_client.exists(ATTENDEES_KEY(event_id))
+    r = get_redis_conn()
+    has_redis_data = r.exists(CHECKED_IN_KEY(event_id)) or r.exists(ATTENDEES_KEY(event_id))
     has_finalized_data = len(registered) > 0 or len(walkins_list) > 0
     
     # If no data at all (not started, not finalized), return "hasn't started" message
@@ -776,8 +852,14 @@ def get_finalized_attendance_view(event_id: int):
 # REST ROUTES
 # ====================================================================
 
-@app.get("/")
-def root():
+@app.get("/", response_class=FileResponse)
+async def root():
+    """
+    Serves the main dashboard page.
+    """
+    index_path = os.path.join(os.path.dirname(__file__), "youth_group_frontend", "index.html")
+    if os.path.exists(index_path):
+        return index_path
     return {"message": "Welcome to the Youth Group API!", "tables": list_tables()}
 
 
@@ -808,11 +890,17 @@ def route_create_event(event_data: dict = Body(...)):
     Expected body: { name, location, date, time, customFields (optional) }
     Note: eventID is auto-generated by MySQL, so it should not be included in the request.
     """
-    # Remove eventID if provided (it will be auto-generated)
-    if "eventID" in event_data:
-        del event_data["eventID"]
-    
-    return create_event(event_data)
+    try:
+        # Remove eventID if provided (it will be auto-generated)
+        if "eventID" in event_data:
+            del event_data["eventID"]
+        
+        return create_event(event_data)
+    except Exception as e:
+        import traceback
+        print(f"Error creating event: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Failed to create event: {str(e)}")
 
 
 @app.api_route("/events/{event_id}", methods=["PUT"])
@@ -1006,10 +1094,33 @@ def route_unregister_student(student_id: int, event_id: int):
         raise HTTPException(status_code=500, detail=f"Failed to unregister student: {str(e)}")
 
 
-# ====================================================================
-# GRAPHQL ROUTER — MUST BE LAST TO AVOID CIRCULAR IMPORT
-# ====================================================================
+
+# =================================
+#  GRAPHQL ENDPOINT 
+# =================================
+from strawberry.fastapi import GraphQLRouter
 from graphql_schema import schema
 
 graphql_app = GraphQLRouter(schema, graphiql=True)
+
 app.include_router(graphql_app, prefix="/graphql")
+
+
+@app.get("/demo", response_class=FileResponse)
+async def read_demo():
+    """
+    Alias for root - serves the demo HTML page.
+    """
+    index_path = os.path.join(os.path.dirname(__file__), "youth_group_frontend", "index.html")
+    if os.path.exists(index_path):
+        return index_path
+    return {"message": "Welcome to the Youth Group API!", "tables": list_tables()}
+
+if __name__ == "__main__":
+    print("\nTo run this FastAPI application:")
+    print("1. pip install -r requirements.txt")
+    print("2. cd youth_group_backend")
+    print("3. uvicorn main:app --reload --port 8000")
+    print("4. Visit http://127.0.0.1:8000/docs for REST API docs")
+    print("5. Visit http://127.0.0.1:8000/demo for demo")
+    print("6. Visit http://127.0.0.1:8000/graphql for GraphiQL")

@@ -5,6 +5,7 @@ from pymongo import MongoClient
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 
+
 def load_secret(name):
     path = os.path.join("secrets", f"{name}.txt")
     if os.path.exists(path):
@@ -12,13 +13,14 @@ def load_secret(name):
             return f.read().strip()
     raise Exception(f"Secret file {path} not found")
 
-#MySQL
+
+# MySQL
 DB_USER = "root"
 DB_PASS = load_secret("mysql_password")
 DB_HOST = "mysql-cs125"
 DB_NAME = "youth_group"
 
-#MongoDB
+# MongoDB
 mongo_client = MongoClient(
     load_secret("mongo_url"),
     tls=True,
@@ -26,7 +28,7 @@ mongo_client = MongoClient(
 )
 mongo_db = mongo_client["youth_group"]
 
-#Redis
+# Redis
 redis_client = redis.Redis(
     host="redis-13814.c258.us-east-1-4.ec2.cloud.redislabs.com",
     port=13814,
@@ -47,13 +49,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 def mysql_connect():
     return mysql.connector.connect(
-    user=DB_USER,
-    password=DB_PASS,
-    host=DB_HOST,
-    database=DB_NAME
+        user=DB_USER,
+        password=DB_PASS,
+        host=DB_HOST,
+        database=DB_NAME
     )
+
 
 def list_tables():
     db = mysql_connect()
@@ -64,11 +68,13 @@ def list_tables():
     db.close()
     return tables
 
+
 @app.get("/")
 def root():
     return {
         "message": "Welcome to the Youth Group API!",
         "tables": list_tables()}
+
 
 @app.get("/students")
 def get_all_students():
@@ -79,22 +85,21 @@ def get_all_students():
         db = mysql_connect()
         cursor = db.cursor(dictionary=True)
         query = """
-            SELECT 
-                s.studentID,
-                s.firstName,
-                s.lastName,
-                s.age,
-                s.phoneNumber,
-                s.email,
-                s.groupID,
-                g1.firstName AS g1_first,
-                g1.lastName AS g1_last,
-                g2.firstName AS g2_first,
-                g2.lastName AS g2_last
-            FROM Student s
-            LEFT JOIN Guardian g1 ON s.guardian1ID = g1.guardianID
-            LEFT JOIN Guardian g2 ON s.guardian2ID = g2.guardianID;
-        """
+                SELECT s.studentID, \
+                       s.firstName, \
+                       s.lastName, \
+                       s.age, \
+                       s.phoneNumber, \
+                       s.email, \
+                       s.groupID, \
+                       g1.firstName AS g1_first, \
+                       g1.lastName  AS g1_last, \
+                       g2.firstName AS g2_first, \
+                       g2.lastName  AS g2_last
+                FROM Student s
+                         LEFT JOIN Guardian g1 ON s.guardian1ID = g1.guardianID
+                         LEFT JOIN Guardian g2 ON s.guardian2ID = g2.guardianID; \
+                """
         cursor.execute(query)
         rows = cursor.fetchall()
 
@@ -127,7 +132,7 @@ def get_student_by_id(student_id: int):
     """
     Retrieves a specific student by their ID from MySQL.
     """
-    
+
     try:
         db = mysql_connect()
         cursor = db.cursor(dictionary=True)
@@ -140,6 +145,7 @@ def get_student_by_id(student_id: int):
         return student
     except mysql.connector.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
+
 
 @app.get("/groups")
 def get_groups():
@@ -164,6 +170,7 @@ def get_groups():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/events")
 def get_all_events():
     """
@@ -172,13 +179,15 @@ def get_all_events():
     try:
         db = mysql_connect()
         cursor = db.cursor(dictionary=True)
-        cursor.execute("SELECT eventID, name, location, date, CAST(time AS CHAR) AS time FROM Event ORDER BY date, time;")
+        cursor.execute(
+            "SELECT eventID, name, location, date, CAST(time AS CHAR) AS time FROM Event ORDER BY date, time;")
         events = cursor.fetchall()
         cursor.close()
         db.close()
         return events
     except mysql.connector.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
+
 
 @app.post("/events")
 def create_event(data: dict = Body(...)):
@@ -192,7 +201,7 @@ def create_event(data: dict = Body(...)):
         cursor.execute(
             "INSERT INTO Event (name, location, date, time) VALUES (%s, %s, %s, %s)",
             (data.get("name"), data.get("location"), data.get("date"), data.get("time")
-        ))
+             ))
         new_event_id = cursor.lastrowid
         db.commit()
         cursor.close()
@@ -245,6 +254,7 @@ def get_event_data(event_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"MySQL error: {e}")
 
+
 @app.post("/events/{event_id}/checkin/{student_id}")
 def check_in(event_id: int, student_id: int):
     """
@@ -254,6 +264,7 @@ def check_in(event_id: int, student_id: int):
     redis_client.sadd(f"event:{event_id}:attendees", student_id)
     return {"message": "checked in", "eventID": event_id, "studentID": student_id}
 
+
 @app.post("/events/{event_id}/checkout/{student_id}")
 def check_out(event_id: int, student_id: int):
     """
@@ -261,6 +272,7 @@ def check_out(event_id: int, student_id: int):
     """
     redis_client.srem(f"event:{event_id}:checkedIn", student_id)
     return {"message": "checked out", "eventID": event_id, "studentID": student_id}
+
 
 @app.get("/events/{event_id}/live")
 def live_attendance(event_id: int):
@@ -270,6 +282,7 @@ def live_attendance(event_id: int):
     key = f"event:{event_id}:checkedIn"
     students = list(redis_client.smembers(key))
     return {"eventID": event_id, "checkedIn": students, "count": len(students)}
+
 
 @app.post("/events/{event_id}/finalize")
 def finalize_event(event_id: int):
@@ -291,20 +304,20 @@ def finalize_event(event_id: int):
         cursor.execute(
             "SELECT 1 FROM Registration WHERE studentID=%s AND eventID=%s",
             (student_id, event_id)
-        ) #Check if student is registered
+        )  # Check if student is registered
         is_registered = cursor.fetchone()
 
         if is_registered:
             cursor.execute(
                 "INSERT IGNORE INTO Attendance (studentID, eventID, checkInTime) VALUES (%s, %s, NOW())",
                 (student_id, event_id)
-            ) #Save registered to MySQL
+            )  # Save registered to MySQL
             registered.append(student_id)
         else:
             mongo_db["walk_ins"].insert_one({
                 "eventID": event_id,
                 "studentID": student_id
-            }) #Save walk-ins to MongoDB
+            })  # Save walk-ins to MongoDB
             walk_ins.append(student_id)
     db.commit()
     cursor.close()
@@ -322,3 +335,19 @@ def finalize_event(event_id: int):
         "totalWalkIns": len(walk_ins),
         "totalAttendees": len(registered) + len(walk_ins)
     }
+# GraphQL setup:
+from strawberry.fastapi import GraphQLRouter
+from graphql_schema import schema
+
+# GraphQL router:
+graphql_app = GraphQLRouter(schema, graphiql=True)
+
+# Adding the router to the FastAPI application
+app.include_router(graphql_app, prefix="/graphql")
+
+@app.get("/demo", response_class=FileResponse)
+async def read_demo():
+    """
+    Serves the demo HTML page.
+    """
+    return os.path.join(os.path.dirname(__file__), "index.html")

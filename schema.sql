@@ -29,7 +29,7 @@ CREATE TABLE Event
 );
 CREATE TABLE Volunteer
 (
-    volunteerID INT,
+    volunteerID INT AUTO_INCREMENT,
     firstName   VARCHAR(30) NOT NULL,
     lastName    VARCHAR(30) NOT NULL,
     phoneNumber VARCHAR(20),

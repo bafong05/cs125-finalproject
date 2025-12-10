@@ -3,7 +3,7 @@ USE youth_group;
 -- ============================
 -- GUARDIANS
 -- ============================
-INSERT INTO Guardian (firstName, lastName, phone, email)
+INSERT INTO Guardian (firstName, lastName, phoneNumber, email)
 VALUES 
  ('Laura', 'Mitchell', '555-1111', 'laura.mitchell@example.com'),
  ('James', 'Mitchell', '555-2222', 'james.mitchell@example.com'),
@@ -24,7 +24,7 @@ VALUES
 -- ============================
 -- SMALL GROUPS
 -- ============================
-INSERT INTO SmallGroup (groupName)
+INSERT INTO SmallGroup (name)
 VALUES 
  ('Middle School A'),
  ('High School A');
@@ -56,7 +56,7 @@ SET @E6 = 6;
 -- ============================
 -- VOLUNTEERS
 -- ============================
-INSERT INTO Volunteer (firstName, lastName, phone, email, eventID)
+INSERT INTO Volunteer (firstName, lastName, phoneNumber, email, eventID)
 VALUES 
  ('Amanda', 'Chen', '555-8765', 'amanda.chen@example.com', @E1),
  ('Michael', 'Tran', '555-3234', 'michael.tran@example.com', @E2),
@@ -72,7 +72,7 @@ VALUES
 -- ============================
 -- STUDENTS
 -- ============================
-INSERT INTO Student (firstName, lastName, age, phone, email, 
+INSERT INTO Student (firstName, lastName, age, phoneNumber, email, 
                      guardian1ID, guardian2ID, groupID)
 VALUES
  ('Emily', 'Mitchell', 13, '555-1234', 'emily.m@example.com', 1, 2, @Group101),
@@ -111,7 +111,7 @@ VALUES
 -- ============================
 -- LEADERS
 -- ============================
-INSERT INTO Leader (firstName, lastName, phone, email, groupID)
+INSERT INTO Leader (firstName, lastName, phoneNumber, email, groupID)
 VALUES 
  ('Sarah', 'Kim', '555-7777', 'sarah.kim@example.com', @Group101),
  ('David', 'Reyes', '555-8888', 'david.reyes@example.com', @Group102),
@@ -123,7 +123,7 @@ VALUES
 -- ============================
 -- SESSIONS
 -- ============================
-INSERT INTO Session (groupID, date, time, location, topic)
+INSERT INTO Session (groupID, date, time, location, notes)
 VALUES
  (@Group101, '2026-01-10', '17:00:00', 'Youth Room', 'Introduction'),
  (@Group101, '2026-01-17', '17:00:00', 'Youth Room', 'Discussion Night'),

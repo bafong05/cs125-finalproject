@@ -6,6 +6,7 @@ import redis
 from datetime import datetime
 from pymongo import MongoClient
 from fastapi import FastAPI, HTTPException, Body
+from typing import Optional, Dict, Any
 from fastapi.middleware.cors import CORSMiddleware
 from strawberry.fastapi import GraphQLRouter
 
@@ -178,6 +179,51 @@ def get_groups():
 # --------------------------
 # EVENTS
 # --------------------------
+def create_event(event_data: dict):
+    """
+    Creates a new event in MySQL and stores customFields in MongoDB.
+    event_data should contain: name, location, date, time, customFields (optional)
+    """
+    db = mysql_connect()
+    cursor = db.cursor(dictionary=True)
+    
+    try:
+        # Insert into MySQL Event table
+        cursor.execute("""
+            INSERT INTO Event (name, location, date, time)
+            VALUES (%s, %s, %s, %s)
+        """, (
+            event_data.get("name"),
+            event_data.get("location"),
+            event_data.get("date"),
+            event_data.get("time")
+        ))
+        
+        # Get the auto-generated eventID
+        event_id = cursor.lastrowid
+        db.commit()
+        
+        # Store customFields in MongoDB if provided
+        custom_fields = event_data.get("customFields", {})
+        if custom_fields:
+            mongo_db["event_data"].insert_one({
+                "eventID": event_id,
+                "customFields": custom_fields
+            })
+        
+        cursor.close()
+        db.close()
+        
+        # Return the created event (fetch it to ensure consistency)
+        return get_event_data(event_id)
+        
+    except Exception as e:
+        db.rollback()
+        cursor.close()
+        db.close()
+        raise HTTPException(status_code=500, detail=f"Failed to create event: {str(e)}")
+
+
 def get_all_events():
     try:
         db = mysql_connect()
@@ -224,6 +270,108 @@ def get_event_data(event_id: int):
     event["customFields"] = doc["customFields"] if doc else {}
 
     return event
+
+
+def update_event(event_id: int, event_data: dict):
+    """
+    Updates an existing event in MySQL and MongoDB.
+    event_data should contain: name, location, date, time, customFields (optional)
+    """
+    db = mysql_connect()
+    cursor = db.cursor(dictionary=True)
+    
+    try:
+        # Check if event exists
+        cursor.execute("SELECT eventID FROM Event WHERE eventID=%s;", (event_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Event not found")
+        
+        # Update MySQL Event table
+        cursor.execute("""
+            UPDATE Event 
+            SET name=%s, location=%s, date=%s, time=%s
+            WHERE eventID=%s
+        """, (
+            event_data.get("name"),
+            event_data.get("location"),
+            event_data.get("date"),
+            event_data.get("time"),
+            event_id
+        ))
+        
+        db.commit()
+        
+        # Update customFields in MongoDB
+        custom_fields = event_data.get("customFields", {})
+        existing_doc = mongo_db["event_data"].find_one({"eventID": event_id})
+        
+        if custom_fields:
+            if existing_doc:
+                # Update existing document
+                mongo_db["event_data"].update_one(
+                    {"eventID": event_id},
+                    {"$set": {"customFields": custom_fields}}
+                )
+            else:
+                # Create new document
+                mongo_db["event_data"].insert_one({
+                    "eventID": event_id,
+                    "customFields": custom_fields
+                })
+        else:
+            # Remove customFields if empty
+            if existing_doc:
+                mongo_db["event_data"].delete_one({"eventID": event_id})
+        
+        cursor.close()
+        db.close()
+        
+        # Return the updated event
+        return get_event_data(event_id)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        cursor.close()
+        db.close()
+        raise HTTPException(status_code=500, detail=f"Failed to update event: {str(e)}")
+
+
+def delete_event(event_id: int):
+    """
+    Deletes an event from MySQL and MongoDB.
+    Note: MySQL foreign key constraints will handle cascading deletes.
+    """
+    db = mysql_connect()
+    cursor = db.cursor(dictionary=True)
+    
+    try:
+        # Check if event exists
+        cursor.execute("SELECT eventID FROM Event WHERE eventID=%s;", (event_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Event not found")
+        
+        # Delete from MySQL (cascades to related tables)
+        cursor.execute("DELETE FROM Event WHERE eventID=%s;", (event_id,))
+        db.commit()
+        
+        # Delete from MongoDB
+        mongo_db["event_data"].delete_many({"eventID": event_id})
+        mongo_db["walk_ins"].delete_many({"eventID": event_id})
+        
+        cursor.close()
+        db.close()
+        
+        return {"message": "Event deleted successfully", "eventID": event_id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        cursor.close()
+        db.close()
+        raise HTTPException(status_code=500, detail=f"Failed to delete event: {str(e)}")
 
 
 
@@ -540,6 +688,38 @@ def route_groups():
 @app.get("/events")
 def route_events():
     return get_all_events()
+
+
+@app.post("/events")
+def route_create_event(event_data: dict = Body(...)):
+    """
+    Creates a new event.
+    Expected body: { name, location, date, time, customFields (optional) }
+    Note: eventID is auto-generated by MySQL, so it should not be included in the request.
+    """
+    # Remove eventID if provided (it will be auto-generated)
+    if "eventID" in event_data:
+        del event_data["eventID"]
+    
+    return create_event(event_data)
+
+
+@app.api_route("/events/{event_id}", methods=["PUT"])
+def route_update_event(event_id: int, event_data: Dict[str, Any] = Body(...)):
+    """
+    Updates an existing event.
+    Expected body: { name, location, date, time, customFields (optional) }
+    """
+    return update_event(event_id, event_data)
+
+
+@app.api_route("/events/{event_id}", methods=["DELETE"])
+def route_delete_event(event_id: int):
+    """
+    Deletes an event.
+    Note: This will cascade delete related records (registrations, attendance, etc.)
+    """
+    return delete_event(event_id)
 
 
 @app.get("/events/{event_id}")

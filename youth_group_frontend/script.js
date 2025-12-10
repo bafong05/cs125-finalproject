@@ -912,11 +912,17 @@ function renderEventList(events) {
                     <strong>Time:</strong> ${escapeHtml(event.time)}<br>
                     <strong>Location:</strong> ${escapeHtml(event.location)}<br>
                     ${customFieldsHtml ? `<div style="margin-top: var(--spacing-sm); padding-top: var(--spacing-sm); border-top: 1px solid var(--border);"><strong>Additional Details:</strong><br>${customFieldsHtml}</div>` : ''}
-                    <div style="margin-top: var(--spacing-sm); padding-top: var(--spacing-sm); border-top: 1px solid var(--border);">
-                        <button class="btn btn-secondary btn-sm" onclick="loadEventAttendance(${event.eventID})" style="margin-top: var(--spacing-xs);">
+                    <div style="margin-top: var(--spacing-sm); padding-top: var(--spacing-sm); border-top: 1px solid var(--border); display: flex; gap: var(--spacing-xs); flex-wrap: wrap;">
+                        <button class="btn btn-secondary btn-sm" onclick="loadEventAttendance(${event.eventID})">
                             View Finalized Attendance
                         </button>
-                        <div id="event-attendance-${event.eventID}" style="margin-top: var(--spacing-sm); display: none;"></div>
+                        <button class="btn btn-secondary btn-sm" onclick="editEvent(${event.eventID})" style="background-color: var(--primary); color: white;">
+                            Edit Event
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="deleteEvent(${event.eventID})" style="background-color: #dc2626; color: white;">
+                            Delete Event
+                        </button>
+                        <div id="event-attendance-${event.eventID}" style="margin-top: var(--spacing-sm); display: none; width: 100%;"></div>
                     </div>
                 </div>
             </td>
@@ -1209,15 +1215,15 @@ function initEventForm() {
             return;
         }
 
+        const description = document.getElementById("event-description").value.trim();
         const newEvent = {
-            eventID: Date.now(),
             name: document.getElementById("event-name").value.trim(),
             date: document.getElementById("event-date").value,
             time: document.getElementById("event-time").value,
             location: document.getElementById("event-location").value.trim(),
-            customFields: {
-                description: document.getElementById("event-description").value.trim(),
-            }
+            customFields: description ? {
+                description: description
+            } : {}
         };
 
         try {
@@ -1372,6 +1378,8 @@ window.toggleStudentsList = toggleStudentsList;
 window.toggleGroupsList = toggleGroupsList;
 window.toggleEventsList = toggleEventsList;
 window.toggleCreateEventForm = toggleCreateEventForm;
+window.editEvent = editEvent;
+window.deleteEvent = deleteEvent;
 window.loadEventAttendance = loadEventAttendance;
 
 // Load and display finalized attendance for an event
@@ -1566,6 +1574,209 @@ function startEventAttendance(eventID, e) {
 // Expose functions to global scope
 window.showEventDetails = showEventDetails;
 window.startEventAttendance = startEventAttendance;
+
+// -----------------------------
+// EDIT EVENT
+// -----------------------------
+async function editEvent(eventID) {
+    const event = allEvents.find((e) => e.eventID === eventID);
+    if (!event) {
+        showToast("Event not found", "error");
+        return;
+    }
+    
+    // Create edit form in a popup
+    const popup = document.getElementById("event-details-popup");
+    const backdrop = document.getElementById("popup-backdrop");
+    
+    if (!popup || !backdrop) {
+        showToast("Popup elements not found", "error");
+        return;
+    }
+    
+    // Format date and time for input fields (YYYY-MM-DD and HH:MM)
+    const dateValue = event.date || "";
+    const timeValue = event.time ? event.time.substring(0, 5) : "";
+    const description = event.customFields?.description || "";
+    
+    popup.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+            <h3 style="margin: 0; color: var(--text-primary);">Edit Event</h3>
+            <button class="popup-close-btn" onclick="closeEventDetailsPopup()" aria-label="Close">×</button>
+        </div>
+        <form id="edit-event-form" data-event-id="${eventID}" style="display: flex; flex-direction: column; gap: var(--spacing-md);">
+            <div class="form-group">
+                <label for="edit-event-name">Event Name *</label>
+                <input type="text" id="edit-event-name" value="${escapeHtml(event.name)}" required>
+                <span class="error-message" id="edit-event-name-error"></span>
+            </div>
+            <div class="form-group">
+                <label for="edit-event-location">Location *</label>
+                <input type="text" id="edit-event-location" value="${escapeHtml(event.location)}" required>
+                <span class="error-message" id="edit-event-location-error"></span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md);">
+                <div class="form-group">
+                    <label for="edit-event-date">Date *</label>
+                    <input type="date" id="edit-event-date" value="${dateValue}" required>
+                    <span class="error-message" id="edit-event-date-error"></span>
+                </div>
+                <div class="form-group">
+                    <label for="edit-event-time">Time *</label>
+                    <input type="time" id="edit-event-time" value="${timeValue}" required>
+                    <span class="error-message" id="edit-event-time-error"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="edit-event-description">Description</label>
+                <textarea id="edit-event-description" rows="3" placeholder="Optional event description">${escapeHtml(description)}</textarea>
+            </div>
+            <div style="display: flex; gap: var(--spacing-sm); justify-content: flex-end; margin-top: var(--spacing-sm);">
+                <button type="button" class="btn btn-secondary" onclick="closeEventDetailsPopup()">Cancel</button>
+                <button type="submit" class="btn btn-accent">Save Changes</button>
+            </div>
+        </form>
+    `;
+    
+    popup.style.display = "block";
+    backdrop.style.display = "block";
+    document.body.style.overflow = "hidden";
+    
+    // Attach close button handler
+    const closeBtn = popup.querySelector(".popup-close-btn");
+    if (closeBtn) {
+        closeBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            closeEventDetailsPopup();
+        };
+    }
+    
+    // Attach backdrop click handler
+    backdrop.onclick = (e) => {
+        if (e.target === backdrop) {
+            closeEventDetailsPopup();
+        }
+    };
+    
+    // Handle form submission
+    const form = document.getElementById("edit-event-form");
+    if (!form) {
+        console.error("Edit form not found");
+        return;
+    }
+    
+    // Remove any existing event listeners by cloning the form
+    const newForm = form.cloneNode(true);
+    form.parentNode.replaceChild(newForm, form);
+    
+    // Get eventID from data attribute or parameter (fallback)
+    const formEventID = parseInt(newForm.dataset.eventId) || eventID;
+    
+    newForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const name = document.getElementById("edit-event-name").value.trim();
+        const location = document.getElementById("edit-event-location").value.trim();
+        const date = document.getElementById("edit-event-date").value;
+        const time = document.getElementById("edit-event-time").value;
+        const description = document.getElementById("edit-event-description").value.trim();
+        
+        // Basic validation
+        if (!name || !location || !date || !time) {
+            showToast("Please fill in all required fields", "error");
+            return;
+        }
+        
+        try {
+            const updatedEvent = {
+                name,
+                location,
+                date,
+                time: time + ":00", // Add seconds for MySQL TIME format
+                customFields: description ? { description } : {}
+            };
+            
+            console.log("Updating event:", formEventID, updatedEvent);
+            
+            const response = await fetch(`${API_BASE_URL}/events/${formEventID}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updatedEvent)
+            });
+            
+            if (!response.ok) {
+                let errorMessage = "Failed to update event";
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.detail || errorData.message || errorMessage;
+                } catch (e) {
+                    errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                }
+                console.error("Update failed:", response.status, errorMessage);
+                throw new Error(errorMessage);
+            }
+            
+            showToast(`Event '${name}' updated successfully!`, "success");
+            closeEventDetailsPopup();
+            
+            // Re-fetch and re-render events
+            const updatedEvents = await fetchData("/events", "events-loading");
+            allEvents = updatedEvents;
+            renderAllEventViews(allEvents, currentCalendarDate);
+            
+        } catch (error) {
+            console.error("Update error:", error);
+            showToast(`Error updating event: ${error.message || "Could not connect to the API."}`, "error");
+        }
+    });
+}
+
+// -----------------------------
+// DELETE EVENT
+// -----------------------------
+async function deleteEvent(eventID) {
+    const event = allEvents.find((e) => e.eventID === eventID);
+    if (!event) {
+        showToast("Event not found", "error");
+        return;
+    }
+    
+    // Confirm deletion
+    const confirmed = confirm(`Are you sure you want to delete "${event.name}"?\n\nThis action cannot be undone and will delete all related data (registrations, attendance, etc.).`);
+    
+    if (!confirmed) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/events/${eventID}`, {
+            method: "DELETE"
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || "Failed to delete event");
+        }
+        
+        showToast(`Event '${event.name}' deleted successfully`, "success");
+        
+        // Close details if open
+        const detailsRow = document.getElementById(`event-details-${eventID}`);
+        if (detailsRow && detailsRow.style.display !== "none") {
+            toggleEventDetails(eventID);
+        }
+        
+        // Re-fetch and re-render events
+        const updatedEvents = await fetchData("/events", "events-loading");
+        allEvents = updatedEvents;
+        renderAllEventViews(allEvents, currentCalendarDate);
+        
+    } catch (error) {
+        console.error("Delete error:", error);
+        showToast(`Error deleting event: ${error.message || "Could not connect to the API."}`, "error");
+    }
+}
 
 document.addEventListener("DOMContentLoaded", init);
 

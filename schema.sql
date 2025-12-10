@@ -4,7 +4,7 @@ USE youth_group;
 
 CREATE TABLE Guardian
 (
-    guardianID  INT,
+    guardianID  INT AUTO_INCREMENT,
     firstName   VARCHAR(30) NOT NULL,
     lastName    VARCHAR(30) NOT NULL,
     phoneNumber VARCHAR(20),
@@ -14,14 +14,14 @@ CREATE TABLE Guardian
 
 CREATE TABLE SmallGroup
 (
-    groupID INT,
-    name    VARCHAR(30),
+    groupID INT AUTO_INCREMENT,
+    name    VARCHAR(30) NOT NULL,
     PRIMARY KEY (groupID)
 );
 CREATE TABLE Event
 (
-    eventID  INT,
-    name     VARCHAR(60),
+    eventID  INT AUTO_INCREMENT,
+    name     VARCHAR(60) NOT NULL,
     location VARCHAR(60) NOT NULL,
     date     DATE        NOT NULL,
     time     TIME        NOT NULL,
@@ -36,18 +36,18 @@ CREATE TABLE Volunteer
     email       VARCHAR(60),
     eventID     INT         NOT NULL,
     PRIMARY KEY (volunteerID),
-    FOREIGN KEY (eventID) REFERENCES Event (eventID)
+    FOREIGN KEY (eventID) REFERENCES Event (eventID) ON DELETE CASCADE
 );
 CREATE TABLE Relationship
 (
     studentID  INT NOT NULL,
     guardianID INT NOT NULL,
     PRIMARY KEY (studentID, guardianID),
-    FOREIGN KEY (guardianID) REFERENCES Guardian (guardianID)
+    FOREIGN KEY (guardianID) REFERENCES Guardian (guardianID) ON DELETE CASCADE
 );
 CREATE TABLE Student
 (
-    studentID   INT,
+    studentID   INT AUTO_INCREMENT,
     firstName   VARCHAR(30) NOT NULL,
     lastName    VARCHAR(30) NOT NULL,
     age         INT         NOT NULL,
@@ -57,57 +57,59 @@ CREATE TABLE Student
     guardian2ID INT,
     groupID     INT         NOT NULL,
     PRIMARY KEY (studentID),
-    FOREIGN KEY (guardian1ID) REFERENCES Guardian (guardianID),
-    FOREIGN KEY (guardian2ID) REFERENCES Guardian (guardianID),
-    FOREIGN KEY (groupID) REFERENCES SmallGroup (groupID)
+    FOREIGN KEY (guardian1ID) REFERENCES Guardian (guardianID) ON DELETE CASCADE,
+    FOREIGN KEY (guardian2ID) REFERENCES Guardian (guardianID) ON DELETE SET NULL,
+    FOREIGN KEY (groupID) REFERENCES SmallGroup (groupID) ON DELETE CASCADE
 );
 ALTER TABLE Relationship
-    ADD FOREIGN KEY (studentID) REFERENCES Student (studentID)
+    ADD FOREIGN KEY (studentID) REFERENCES Student (studentID) ON DELETE CASCADE
 ;
 CREATE TABLE Leader
 (
-    leaderID    INT         NOT NULL,
+    leaderID    INT    AUTO_INCREMENT,
     firstName   VARCHAR(30) NOT NULL,
     lastName    VARCHAR(30) NOT NULL,
     phoneNumber VARCHAR(20),
     email       VARCHAR(60),
-    groupID     INT UNIQUE  NOT NULL,
+    groupID     INT         NOT NULL,
     PRIMARY KEY (leaderID),
-    FOREIGN KEY (groupID) REFERENCES SmallGroup (groupID)
+    FOREIGN KEY (groupID) REFERENCES SmallGroup (groupID) ON DELETE CASCADE
 );
 CREATE TABLE Session
 (
-    sessionID INT,
+    sessionID INT AUTO_INCREMENT,
     groupID   INT         NOT NULL,
     date      DATE        NOT NULL,
     time      TIME        NOT NULL,
     location  VARCHAR(60) NOT NULL,
     notes     VARCHAR(1023),
     PRIMARY KEY (sessionID),
-    FOREIGN KEY (groupID) REFERENCES SmallGroup (groupID)
+    FOREIGN KEY (groupID) REFERENCES SmallGroup (groupID) ON DELETE CASCADE
 );
 CREATE TABLE Registration
 (
     studentID INT NOT NULL,
     eventID   INT NOT NULL,
     PRIMARY KEY (studentID, eventID),
-    FOREIGN KEY (studentID) REFERENCES Student (studentID),
-    FOREIGN KEY (eventID) REFERENCES Event (eventID)
+    FOREIGN KEY (studentID) REFERENCES Student (studentID) ON DELETE CASCADE,
+    FOREIGN KEY (eventID) REFERENCES Event (eventID) ON DELETE CASCADE
 );
 CREATE TABLE Attendance
 (
+    attendanceID INT AUTO_INCREMENT,
     studentID    INT  NOT NULL,
     eventID      INT  NOT NULL,
-    checkInTime  TIME NOT NULL,
-    checkOutTime TIME,
-    PRIMARY KEY (studentID, eventID),
-    FOREIGN KEY (studentID, eventID) REFERENCES Registration (studentID, eventID)
+    checkInTime  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    checkOutTime DATETIME,
+    PRIMARY KEY (attendanceID),
+    FOREIGN KEY (studentID) REFERENCES Student(studentID) ON DELETE CASCADE,
+    FOREIGN KEY (eventID)   REFERENCES Event(eventID) ON DELETE CASCADE
 );
 CREATE TABLE EventStaff
 (
     eventID     INT NOT NULL,
     volunteerID INT NOT NULL,
     PRIMARY KEY (eventID, volunteerID),
-    FOREIGN KEY (eventID) REFERENCES Event (eventID),
-    FOREIGN KEY (volunteerID) REFERENCES Volunteer (volunteerID)
+    FOREIGN KEY (eventID) REFERENCES Event (eventID) ON DELETE CASCADE,
+    FOREIGN KEY (volunteerID) REFERENCES Volunteer (volunteerID) ON DELETE CASCADE
 );

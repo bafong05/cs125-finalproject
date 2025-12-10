@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Youth Group Dashboard</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>Youth Group Dashboard</h1>
+            <p class="app-subtitle">
+                Manage students, small groups, and events – or view a student’s dashboard as a parent.
+            </p>
+        </header>
+
+        <div class="view-switcher">
+            <button id="leader-mode-btn" class="switch-btn leader-btn active" onclick="switchView('leader')">
+                Leader Dashboard
+            </button>
+            <button id="parent-mode-btn" class="switch-btn parent-btn" onclick="switchView('parent')">
+                Parent / Student View
+            </button>
+        </div>
+
+        <main id="leader-dashboard-view">
+            <section class="section-card">
+                <div class="section-header">
+                    <div>
+                        <h2>Students</h2>
+                        <p class="section-description">
+                            View student details, guardians, and group assignments.
+                        </p>
+                    </div>
+                    <div class="section-actions">
+                        <input
+                            type="text"
+                            id="student-search"
+                            class="search-input"
+                            placeholder="Search students by name..."
+                        />
+                    </div>
+                </div>
+
+                <button class="toggle-btn" onclick="toggleStudentsList()" id="students-toggle-btn">
+                    Hide Students ▲
+                </button>
+
+                <div id="students-loading" class="loading" style="display:none;">
+                    <div class="spinner"></div>
+                    <span>Loading students...</span>
+                </div>
+
+                <div id="student-section">
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <tbody id="member-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section-card">
+                <div class="section-header">
+                    <div>
+                        <h2>Small Groups</h2>
+                        <p class="section-description">
+                            See group leaders and members for each small group.
+                        </p>
+                    </div>
+                </div>
+
+                <button class="toggle-btn" onclick="toggleGroupsList()" id="groups-toggle-btn">
+                    Hide Groups ▲
+                </button>
+
+                <div id="groups-loading" class="loading" style="display:none;">
+                    <div class="spinner"></div>
+                    <span>Loading groups...</span>
+                </div>
+
+                <div id="groups-section">
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <tbody id="groups-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            
+            <section class="section-card">
+                <div class="section-header">
+                    <div>
+                        <h2>Upcoming Events</h2>
+                        <p class="section-description" id="events-view-description">
+                            Click a day with an event to view details and action buttons.
+                        </p>
+                    </div>
+                    <div class="section-actions event-view-switcher">
+                        <button id="calendar-view-btn" class="action-btn-small active" onclick="switchEventView('calendar')">
+                            Calendar
+                        </button>
+                        <button id="list-view-btn" class="action-btn-small" onclick="switchEventView('list')">
+                            List View
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="calendar-view-container">
+                    <div id="calendar-header" class="calendar-header">
+                        <button onclick="changeMonth(-1)">&#9664; Prev</button>
+                        <h3 id="current-month-year">Month Year</h3>
+                        <button onclick="changeMonth(1)">Next &#9654;</button>
+                    </div>
+                    <div id="calendar-grid" class="calendar-grid">
+                        </div>
+                </div>
+
+                <div id="list-view-container" style="display:none;">
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Event Name</th>
+                                    <th>Date & Time</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="event-list-body">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div id="events-loading" class="loading" style="display:none;">
+                    <div class="spinner"></div> <span>Loading Events...</span>
+                </div>
+            </section>
+            
+            <section class="section-card">
+                <div class="section-header">
+                    <h2>Create New Event</h2>
+                </div>
+                <form id="create-event-form">
+                    <div class="form-group">
+                        <label for="event-name">Event Name:</label>
+                        <input type="text" id="event-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="event-date">Date:</label>
+                        <input type="date" id="event-date" required>
+                    </div>
+                    <div class="form-group half-width">
+                        <label for="event-time">Time:</label>
+                        <input type="time" id="event-time" required>
+                    </div>
+                    <div class="form-group half-width">
+                        <label for="event-location">Location:</label>
+                        <input type="text" id="event-location" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="event-description">Description:</label>
+                        <textarea id="event-description"></textarea>
+                    </div>
+                    <button type="submit" class="action-btn btn-create-event">Create Event</button>
+                </form>
+            </section>
+
+        </main>
+        
+        <div id="event-details-popup" class="event-details-popup" style="display:none;">
+            </div>
+
+        <main id="parent-view" style="display:none;">
+            <section class="section-card lookup-form-card">
+                <h2>Student Lookup</h2>
+                <p class="section-description">
+                    Enter a student ID to view their personal dashboard.
+                </p>
+                <form id="student-lookup-form">
+                    <div class="form-group lookup-group">
+                        <label for="student-id-input">Student ID</label>
+                        <input type="number" id="student-id-input" placeholder="Enter Student ID" required />
+                    </div>
+                    <button class="action-btn btn-lookup">View Dashboard</button>
+                </form>
+            </section>
+
+            <section id="parent-dashboard-content" style="display:none;">
+                <p class="student-name-display" id="parent-student-name"></p>
+
+                <section class="section-card">
+                    <div class="section-header">
+                        <h2>Upcoming Events</h2>
+                        <p class="section-description">
+                            Register for future events (mock status only).
+                        </p>
+                    </div>
+                    <h3 class="subheading">Upcoming Events</h3>
+                    <div id="parent-upcoming-events"></div>
+                </section>
+
+                <section class="section-card">
+                    <div class="section-header">
+                        <div>
+                            <h2>Attendance History</h2>
+                            <p class="section-description">
+                                See when your student checked in and attended past events.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div id="parent-attendance-loading" class="loading" style="display:none;">
+                        <div class="spinner"></div>
+                        <span>Loading attendance...</span>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Event</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Check-In Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="parent-attendance-body"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

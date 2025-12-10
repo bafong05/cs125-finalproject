@@ -1,184 +1,221 @@
 USE youth_group;
 
--- GUARDIANS (15)
-INSERT INTO Guardian VALUES
-(1, 'Laura', 'Mitchell', '555-1111', 'laura.mitchell@example.com'),
-(2, 'James', 'Mitchell', '555-2222', 'james.mitchell@example.com'),
-(3, 'Sophie', 'Young', '555-3333', 'sophie.young@example.com'),
-(4, 'Daniel', 'Young', '555-4444', 'daniel.young@example.com'),
-(5, 'Karen', 'Lopez', '555-5555', 'karen.lopez@example.com'),
-(6, 'Tina', 'Johnson', '555-6666', 'tina.johnson@example.com'),
-(7, 'Marcus', 'Johnson', '555-7777', 'marcus.johnson@example.com'),
-(8, 'Amy', 'Wong', '555-8881', 'amy.wong@example.com'),
-(9, 'Robert', 'Wong', '555-8882', 'robert.wong@example.com'),
-(10, 'Linda', 'Chavez', '555-9081', 'linda.chavez@example.com'),
-(11, 'Carlos', 'Chavez', '555-9082', 'carlos.chavez@example.com'),
-(12, 'Helen', 'Smith', '555-9090', 'helen.smith@example.com'),
-(13, 'George', 'Smith', '555-9091', 'george.smith@example.com'),
-(14, 'Olivia', 'Reed', '555-7575', 'olivia.reed@example.com'),
-(15, 'Paul', 'Reed', '555-7576', 'paul.reed@example.com');
+-- ============================
+-- GUARDIANS
+-- ============================
+INSERT INTO Guardian (firstName, lastName, phone, email)
+VALUES 
+ ('Laura', 'Mitchell', '555-1111', 'laura.mitchell@example.com'),
+ ('James', 'Mitchell', '555-2222', 'james.mitchell@example.com'),
+ ('Sophie', 'Young', '555-3333', 'sophie.young@example.com'),
+ ('Daniel', 'Young', '555-4444', 'daniel.young@example.com'),
+ ('Karen', 'Lopez', '555-5555', 'karen.lopez@example.com'),
+ ('Tina', 'Johnson', '555-6666', 'tina.johnson@example.com'),
+ ('Marcus', 'Johnson', '555-7777', 'marcus.johnson@example.com'),
+ ('Amy', 'Wong', '555-8881', 'amy.wong@example.com'),
+ ('Robert', 'Wong', '555-8882', 'robert.wong@example.com'),
+ ('Linda', 'Chavez', '555-9081', 'linda.chavez@example.com'),
+ ('Carlos', 'Chavez', '555-9082', 'carlos.chavez@example.com'),
+ ('Helen', 'Smith', '555-9090', 'helen.smith@example.com'),
+ ('George', 'Smith', '555-9091', 'george.smith@example.com'),
+ ('Olivia', 'Reed', '555-7575', 'olivia.reed@example.com'),
+ ('Paul', 'Reed', '555-7576', 'paul.reed@example.com');
 
--- SMALL GROUPS (2)
-INSERT INTO SmallGroup VALUES
-(101, 'Middle School A'),
-(102, 'High School A');
+-- ============================
+-- SMALL GROUPS
+-- ============================
+INSERT INTO SmallGroup (groupName)
+VALUES 
+ ('Middle School A'),
+ ('High School A');
 
--- EVENTS (6)
-INSERT INTO Event VALUES
-(1001, 'Winter Retreat', 'Camp Redwood', '2025-01-14', '09:00:00'),
-(1002, 'Youth Service Day', 'Community Center', '2025-02-20', '10:00:00'),
-(1003, 'Spring Picnic', 'Lakeside Park', '2025-03-12', '12:00:00'),
-(1004, 'Fundraising Gala', 'Church Hall', '2025-04-18', '18:00:00'),
-(1005, 'Summer Kickoff', 'Beachside', '2025-06:10', '11:00:00'),
-(1006, 'Holiday Giving Event', 'Food Bank', '2025-12-05', '09:30:00');
+-- Capture IDs
+SET @Group101 = 1;
+SET @Group102 = 2;
 
--- VOLUNTEERS (10)
-INSERT INTO Volunteer VALUES
-(501, 'Amanda', 'Chen', '555-8765', 'amanda.chen@example.com', 1001),
-(502, 'Michael', 'Tran', '555-3234', 'michael.tran@example.com', 1002),
-(503, 'Rachel', 'Price', '555-4721', 'rachel.price@example.com', 1001),
-(504, 'Jonathan', 'Lee', '555-4983', 'jon.lee@example.com', 1003),
-(505, 'Mia', 'Patel', '555-2229', 'mia.patel@example.com', 1004),
-(506, 'Eric', 'Diaz', '555-1742', 'eric.diaz@example.com', 1005),
-(507, 'Hannah', 'Rogers', '555-7412', 'hannah.rogers@example.com', 1005),
-(508, 'Peter', 'Nguyen', '555-6422', 'peter.nguyen@example.com', 1006),
-(509, 'Nina', 'Morales', '555-9012', 'nina.morales@example.com', 1004),
-(510, 'Leo', 'Kim', '555-1029', 'leo.kim@example.com', 1002);
+-- ============================
+-- EVENTS (auto IDs)
+-- ============================
+INSERT INTO Event (name, location, date, time)
+VALUES 
+ ('Winter Retreat', 'Camp Redwood', '2026-01-14', '09:00:00'),
+ ('Youth Service Day', 'Community Center', '2026-02-20', '10:00:00'),
+ ('Spring Picnic', 'Lakeside Park', '2026-03-12', '12:00:00'),
+ ('Fundraising Gala', 'Church Hall', '2026-04-18', '18:00:00'),
+ ('Summer Kickoff', 'Beachside', '2026-06-10', '11:00:00'),
+ ('Holiday Giving Event', 'Food Bank', '2026-12-05', '09:30:00');
 
--- STUDENTS (20)
-INSERT INTO Student VALUES
-(201, 'Emily', 'Mitchell', 13, '555-1234', 'emily.m@example.com', 1, 2, 101),
-(202, 'Brian', 'Young', 15, '555-5678', 'brian.y@example.com', 3, 4, 101),
-(203, 'Lily', 'Lopez', 14, '555-9999', 'lily.l@example.com', 5, NULL, 102),
-(204, 'Jason', 'Johnson', 12, '555-2399', 'jason.j@example.com', 6, 7, 101),
-(205, 'Chloe', 'Wong', 13, '555-7812', 'chloe.w@example.com', 8, 9, 101),
-(206, 'Sofia', 'Chavez', 14, '555-4521', 'sofia.c@example.com', 10, 11, 102),
-(207, 'Evan', 'Smith', 15, '555-2390', 'evan.s@example.com', 12, 13, 102),
-(208, 'Noah', 'Reed', 16, '555-4492', 'noah.r@example.com', 14, 15, 102),
-(209, 'Maya', 'Mitchell', 11, '555-1313', 'maya.m@example.com', 1, 2, 101),
-(210, 'Aiden', 'Young', 12, '555-5656', 'aiden.y@example.com', 3, 4, 101),
-(211, 'Bella', 'Lopez', 15, '555-9333', 'bella.l@example.com', 5, NULL, 102),
-(212, 'Ethan', 'Johnson', 14, '555-6611', 'ethan.j@example.com', 6, 7, 101),
-(213, 'Zoe', 'Wong', 13, '555-8891', 'zoe.w@example.com', 8, 9, 101),
-(214, 'Lucas', 'Chavez', 16, '555-9033', 'lucas.c@example.com', 10, 11, 102),
-(215, 'Grace', 'Smith', 15, '555-9060', 'grace.s@example.com', 12, 13, 102),
-(216, 'Oliver', 'Reed', 14, '555-7481', 'oliver.r@example.com', 14, 15, 102),
-(217, 'Natalie', 'Mitchell', 12, '555-1119', 'natalie.m@example.com', 1, 2, 101),
-(218, 'Ryan', 'Young', 13, '555-6767', 'ryan.y@example.com', 3, 4, 101),
-(219, 'Ella', 'Lopez', 14, '555-9099', 'ella.l@example.com', 5, NULL, 102),
-(220, 'Jacob', 'Smith', 15, '555-9500', 'jacob.s@example.com', 12, 13, 102);
+-- Save eventIDs
+SET @E1 = 1;
+SET @E2 = 2;
+SET @E3 = 3;
+SET @E4 = 4;
+SET @E5 = 5;
+SET @E6 = 6;
 
--- RELATIONSHIPS (Student ↔ Guardian)
-INSERT INTO Relationship VALUES
-(201, 1), (201, 2),
-(202, 3), (202, 4),
-(203, 5),
-(204, 6), (204, 7),
-(205, 8), (205, 9),
-(206, 10), (206, 11),
-(207, 12), (207, 13),
-(208, 14), (208, 15),
-(209, 1), (209, 2),
-(210, 3), (210, 4),
-(211, 5),
-(212, 6), (212, 7),
-(213, 8), (213, 9),
-(214, 10), (214, 11),
-(215, 12), (215, 13),
-(216, 14), (216, 15),
-(217, 1), (217, 2),
-(218, 3), (218, 4),
-(219, 5),
-(220, 12), (220, 13);
+-- ============================
+-- VOLUNTEERS
+-- ============================
+INSERT INTO Volunteer (firstName, lastName, phone, email, eventID)
+VALUES 
+ ('Amanda', 'Chen', '555-8765', 'amanda.chen@example.com', @E1),
+ ('Michael', 'Tran', '555-3234', 'michael.tran@example.com', @E2),
+ ('Rachel', 'Price', '555-4721', 'rachel.price@example.com', @E1),
+ ('Jonathan', 'Lee', '555-4983', 'jon.lee@example.com', @E2),
+ ('Mia', 'Patel', '555-2229', 'mia.patel@example.com', @E1),
+ ('Eric', 'Diaz', '555-1742', 'eric.diaz@example.com', @E3),
+ ('Hannah', 'Rogers', '555-7412', 'hannah.rogers@example.com', @E4),
+ ('Peter', 'Nguyen', '555-6422', 'peter.nguyen@example.com', @E4),
+ ('Nina', 'Morales', '555-9012', 'nina.morales@example.com', @E5),
+ ('Leo', 'Kim', '555-1029', 'leo.kim@example.com', @E6);
 
--- LEADERS (6)
-INSERT INTO Leader VALUES
-(301, 'Sarah', 'Kim', '555-7777', 'sarah.kim@example.com', 101),
-(302, 'David', 'Reyes', '555-8888', 'david.reyes@example.com', 102),
-(303, 'Jenna', 'Park', '555-3838', 'jenna.park@example.com', 101),
-(304, 'Marcus', 'Diaz', '555-2220', 'marcus.diaz@example.com', 102),
-(305, 'Elise', 'Turner', '555-4949', 'elise.turner@example.com', 101),
-(306, 'Tyler', 'Gibson', '555-8181', 'tyler.gibson@example.com', 102);
+-- ============================
+-- STUDENTS
+-- ============================
+INSERT INTO Student (firstName, lastName, age, phone, email, 
+                     guardian1ID, guardian2ID, groupID)
+VALUES
+ ('Emily', 'Mitchell', 13, '555-1234', 'emily.m@example.com', 1, 2, @Group101),
+ ('Brian', 'Young', 15, '555-5678', 'brian.y@example.com', 3, 4, @Group101),
+ ('Lily', 'Lopez', 14, '555-9999', 'lily.l@example.com', 5, NULL, @Group102),
+ ('Jason', 'Johnson', 12, '555-2399', 'jason.j@example.com', 6, 7, @Group101),
+ ('Chloe', 'Wong', 13, '555-7812', 'chloe.w@example.com', 8, 9, @Group101),
+ ('Sofia', 'Chavez', 14, '555-4521', 'sofia.c@example.com', 10, 11, @Group102),
+ ('Evan', 'Smith', 15, '555-2390', 'evan.s@example.com', 12, 13, @Group102),
+ ('Noah', 'Reed', 16, '555-4492', 'noah.r@example.com', 14, 15, @Group102),
+ ('Maya', 'Mitchell', 11, '555-1313', 'maya.m@example.com', 1, 2, @Group101),
+ ('Aiden', 'Young', 12, '555-5656', 'aiden.y@example.com', 3, 4, @Group101),
+ ('Bella', 'Lopez', 15, '555-9333', 'bella.l@example.com', 5, NULL, @Group102),
+ ('Ethan', 'Johnson', 14, '555-6611', 'ethan.j@example.com', 6, 7, @Group101),
+ ('Zoe', 'Wong', 13, '555-8891', 'zoe.w@example.com', 8, 9, @Group101),
+ ('Lucas', 'Chavez', 16, '555-9033', 'lucas.c@example.com', 10, 11, @Group102),
+ ('Grace', 'Smith', 15, '555-9060', 'grace.s@example.com', 12, 13, @Group102),
+ ('Oliver', 'Reed', 14, '555-7481', 'oliver.r@example.com', 14, 15, @Group102),
+ ('Natalie', 'Mitchell', 12, '555-1119', 'natalie.m@example.com', 1, 2, @Group101),
+ ('Ryan', 'Young', 13, '555-6767', 'ryan.y@example.com', 3, 4, @Group101),
+ ('Ella', 'Lopez', 14, '555-9099', 'ella.l@example.com', 5, NULL, @Group102),
+ ('Jacob', 'Smith', 15, '555-9500', 'jacob.s@example.com', 12, 13, @Group102);
 
--- SESSIONS (18)
-INSERT INTO Session VALUES
-(4001, 101, '2025-01-10', '17:00:00', 'Youth Room', 'Introduction'),
-(4002, 101, '2025-01-17', '17:00:00', 'Youth Room', 'Discussion Night'),
-(4003, 101, '2025-01-24', '17:00:00', 'Youth Room', 'Service Project Planning'),
-(4004, 102, '2025-01-12', '18:00:00', 'Main Hall', 'Kickoff Meeting'),
-(4005, 102, '2025-01-19', '18:00:00', 'Main Hall', 'Guest Speaker'),
-(4006, 102, '2025-01-26', '18:00:00', 'Main Hall', 'Community Outreach Prep'),
-(4007, 101, '2025-02-01', '17:00:00', 'Youth Room', 'Games Night'),
-(4008, 102, '2025-02-02', '18:00:00', 'Main Hall', 'Worship Session'),
-(4009, 101, '2025-02-08', '17:00:00', 'Youth Room', 'Bible Study'),
-(4010, 102, '2025-02-09', '18:00:00', 'Main Hall', 'Leadership Training'),
-(4011, 101, '2025-02-15', '17:00:00', 'Youth Room', 'Team Building'),
-(4012, 102, '2025-02-16', '18:00:00', 'Main Hall', 'Debate Night'),
-(4013, 101, '2025-02-22', '17:00:00', 'Youth Room', 'Movie Night'),
-(4014, 102, '2025-02-23', '18:00:00', 'Main Hall', 'Service Review'),
-(4015, 101, '2025-03-01', '17:00:00', 'Youth Room', 'Mentorship Lab'),
-(4016, 102, '2025-03-02', '18:00:00', 'Main Hall', 'Music Night'),
-(4017, 101, '2025-03-08', '17:00:00', 'Youth Room', 'Quiet Reflection'),
-(4018, 102, '2025-03-09', '18:00:00', 'Main Hall', 'Advanced Study');
+-- ============================
+-- RELATIONSHIPS (studentID, guardianID)
+-- ============================
+INSERT INTO Relationship (studentID, guardianID)
+VALUES 
+ (1,1),(1,2),(2,3),(2,4),(3,5),(4,6),(4,7),(5,8),(5,9),
+ (6,10),(6,11),(7,12),(7,13),(8,14),(8,15),
+ (9,1),(9,2),(10,3),(10,4),(11,5),(12,6),(12,7),
+ (13,8),(13,9),(14,10),(14,11),(15,12),(15,13),
+ (16,14),(16,15),(17,1),(17,2),(18,3),(18,4),
+ (19,5),(20,12),(20,13);
 
--- REGISTRATIONS (40)
-INSERT INTO Registration VALUES
-(201,1001),(201,1003),(201,1004),
-(202,1001),(202,1002),(202,1005),
-(203,1002),(203,1006),
-(204,1003),(204,1005),
-(205,1001),(205,1004),
-(206,1006),(206,1003),
-(207,1002),(207,1004),
-(208,1001),(208,1005),(208,1006),
-(209,1004),(209,1005),
-(210,1003),(210,1006),
-(211,1006),(211,1001),
-(212,1002),(212,1004),
-(213,1001),(213,1003),
-(214,1005),(214,1006),
-(215,1004),(215,1003),
-(216,1002),(216,1006),
-(217,1001),(217,1005),
-(218,1003),(218,1004),
-(219,1006),
-(220,1002),(220,1003);
+-- ============================
+-- LEADERS
+-- ============================
+INSERT INTO Leader (firstName, lastName, phone, email, groupID)
+VALUES 
+ ('Sarah', 'Kim', '555-7777', 'sarah.kim@example.com', @Group101),
+ ('David', 'Reyes', '555-8888', 'david.reyes@example.com', @Group102),
+ ('Jenna', 'Park', '555-3838', 'jenna.park@example.com', @Group101),
+ ('Marcus', 'Diaz', '555-2220', 'marcus.diaz@example.com', @Group102),
+ ('Elise', 'Turner', '555-4949', 'elise.turner@example.com', @Group101),
+ ('Tyler', 'Gibson', '555-8181', 'tyler.gibson@example.com', @Group102);
 
--- ATTENDANCE (35)
-INSERT INTO Attendance VALUES
-(201,1001,'09:05','16:00'),
-(201,1003,'12:10','15:00'),
-(202,1001,'09:20','16:10'),
-(202,1005,'11:05','14:45'),
-(203,1002,'10:15',NULL),
-(204,1003,'12:30','14:00'),
-(205,1004,'18:05','21:00'),
-(206,1003,'12:15','15:10'),
-(207,1004,'18:20','20:50'),
-(208,1001,'09:12','16:30'),
-(208,1005,'11:10','14:30'),
-(209,1004,'18:00','20:00'),
-(210,1003,'12:00','14:30'),
-(211,1006,'09:40','11:50'),
-(212,1002,'10:20','13:00'),
-(213,1001,'09:05','15:30'),
-(214,1005,'11:00','14:20'),
-(214,1006,'09:50','12:00'),
-(215,1004,'18:10','20:30'),
-(216,1002,'10:05','12:40'),
-(217,1001,'09:00','15:50'),
-(218,1003,'12:15','14:45'),
-(219,1006,'09:35','12:15'),
-(220,1002,'10:00','13:20');
+-- ============================
+-- SESSIONS
+-- ============================
+INSERT INTO Session (groupID, date, time, location, topic)
+VALUES
+ (@Group101, '2026-01-10', '17:00:00', 'Youth Room', 'Introduction'),
+ (@Group101, '2026-01-17', '17:00:00', 'Youth Room', 'Discussion Night'),
+ (@Group101, '2026-01-24', '17:00:00', 'Youth Room', 'Service Project Planning'),
+ (@Group102, '2026-01-12', '18:00:00', 'Main Hall', 'Kickoff Meeting'),
+ (@Group102, '2026-01-19', '18:00:00', 'Main Hall', 'Guest Speaker'),
+ (@Group102, '2026-01-26', '18:00:00', 'Main Hall', 'Community Outreach Prep'),
+ (@Group101, '2026-02-01', '17:00:00', 'Youth Room', 'Games Night'),
+ (@Group102, '2026-02-02', '18:00:00', 'Main Hall', 'Worship Session'),
+ (@Group101, '2026-02-08', '17:00:00', 'Youth Room', 'Bible Study'),
+ (@Group102, '2026-02-09', '18:00:00', 'Main Hall', 'Leadership Training'),
+ (@Group101, '2026-02-15', '17:00:00', 'Youth Room', 'Team Building'),
+ (@Group102, '2026-02-16', '18:00:00', 'Main Hall', 'Debate Night'),
+ (@Group101, '2026-02-22', '17:00:00', 'Youth Room', 'Movie Night'),
+ (@Group102, '2026-02-23', '18:00:00', 'Main Hall', 'Service Review'),
+ (@Group101, '2026-03-01', '17:00:00', 'Youth Room', 'Mentorship Lab'),
+ (@Group102, '2026-03-02', '18:00:00', 'Main Hall', 'Music Night'),
+ (@Group101, '2026-03-08', '17:00:00', 'Youth Room', 'Quiet Reflection'),
+ (@Group102, '2026-03-09', '18:00:00', 'Main Hall', 'Advanced Study');
 
--- EVENT STAFF (20)
-INSERT INTO EventStaff VALUES
-(1001,501),(1001,503),(1001,507),
-(1002,502),(1002,510),
-(1003,504),(1003,501),
-(1004,505),(1004,509),
-(1005,506),(1005,507),
-(1006,508),(1006,509),(1006,505),
-(1001,510),(1003,503),
-(1004,501),(1005,508),
-(1002,506),(1006,510);
+-- ============================
+-- REGISTRATIONS (studentID, eventID)
+-- ============================
+INSERT INTO Registration (studentID, eventID)
+VALUES
+ (1,@E1), (1,@E3), (1,@E4),
+ (2,@E1), (2,@E2), (2,@E5),
+ (3,@E2), (3,@E6),
+ (4,@E3), (4,@E5),
+ (5,@E1), (5,@E4),
+ (6,@E6), (6,@E3),
+ (7,@E2), (7,@E4),
+ (8,@E1), (8,@E5), (8,@E6),
+ (9,@E4), (9,@E5),
+ (10,@E3), (10,@E6),
+ (11,@E6), (11,@E1),
+ (12,@E2), (12,@E4),
+ (13,@E1), (13,@E3),
+ (14,@E5), (14,@E6),
+ (15,@E4), (15,@E3),
+ (16,@E2), (16,@E6),
+ (17,@E1), (17,@E5),
+ (18,@E3), (18,@E4),
+ (19,@E6),
+ (20,@E2), (20,@E3);
+
+-- ============================
+-- ATTENDANCE
+-- ============================
+INSERT INTO Attendance (studentID, eventID, checkInTime, checkOutTime)
+VALUES
+ (1,@E1,'2026-01-14 09:05:00','2026-01-14 16:00:00'),
+ (1,@E3,'2026-03-12 12:10:00','2026-03-12 15:00:00'),
+ (2,@E1,'2026-01-14 09:20:00','2026-01-14 16:10:00'),
+ (2,@E5,'2026-06-10 11:05:00','2026-06-10 14:45:00'),
+ (3,@E2,'2026-02-20 10:15:00',NULL),
+ (4,@E3,'2026-03-12 12:30:00','2026-03-12 14:00:00'),
+ (5,@E4,'2026-04-18 18:05:00','2026-04-18 21:00:00'),
+ (6,@E3,'2026-03-12 12:15:00','2026-03-12 15:10:00'),
+ (7,@E4,'2026-04-18 18:20:00','2026-04-18 20:50:00'),
+ (8,@E1,'2026-01-14 09:12:00','2026-01-14 16:30:00'),
+ (8,@E5,'2026-06-10 11:10:00','2026-06-10 14:30:00'),
+ (9,@E4,'2026-04-18 18:00:00','2026-04-18 20:00:00'),
+ (10,@E3,'2026-03-12 12:00:00','2026-03-12 14:30:00'),
+ (11,@E6,'2026-12-05 09:40:00','2026-12-05 11:50:00'),
+ (12,@E2,'2026-02-20 10:20:00','2026-02-20 13:00:00'),
+ (13,@E1,'2026-01-14 09:05:00','2026-01-14 15:30:00'),
+ (14,@E5,'2026-06-10 11:00:00','2026-06-10 14:20:00'),
+ (14,@E6,'2026-12-05 09:50:00','2026-12-05 12:00:00'),
+ (15,@E4,'2026-04-18 18:10:00','2026-04-18 20:30:00'),
+ (16,@E2,'2026-02-20 10:05:00','2026-02-20 12:40:00'),
+ (17,@E1,'2026-01-14 09:00:00','2026-01-14 15:50:00'),
+ (18,@E3,'2026-03-12 12:15:00','2026-03-12 14:45:00'),
+ (19,@E6,'2026-12-05 09:35:00','2026-12-05 12:15:00'),
+ (20,@E2,'2026-02-20 10:00:00','2026-02-20 13:20:00');
+
+-- ============================
+-- EVENT STAFF
+-- ============================
+INSERT INTO EventStaff (eventID, volunteerID) VALUES
+(1, 1),
+(1, 2),
+(1, 3),
+(2, 4),
+(2, 5),
+(3, 6),
+(3, 7),
+(3, 8),
+(4, 2),
+(4, 9),
+(5, 3),
+(5, 10),
+(6, 1),
+(6, 6),
+(6, 8);

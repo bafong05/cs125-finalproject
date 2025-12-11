@@ -19,8 +19,29 @@ from main import (
     get_finalized_attendance_view,
 )
 
-# GraphQL Types
+def dict_to_student(s: dict) -> "Student":
+    """Helper to convert dict to Student"""
+    return Student(
+        studentID=s["studentID"],
+        firstName=s["firstName"],
+        lastName=s["lastName"],
+        age=s["age"],
+        phoneNumber=s.get("phoneNumber"),
+        email=s.get("email"),
+        groupID=s["groupID"],
+        guardians=s.get("guardians", [])
+    )
 
+def dict_to_event(e: dict) -> "Event":
+    """Helper to convert dict to Event"""
+    return Event(
+        eventID=e["eventID"],
+        name=e.get("name"),
+        location=e["location"],
+        date=e["date"],
+        time=e["time"],
+        customFields=e.get("customFields")
+    )
 
 @strawberry.type
 class Guardian:
@@ -151,127 +172,41 @@ class Query:
 
     @strawberry.field
     def students(self) -> List[Student]:
-        students_data = get_all_students()
-        # Convert dictionaries to Student objects
-        return [
-            Student(
-                studentID=s["studentID"],
-                firstName=s["firstName"],
-                lastName=s["lastName"],
-                age=s["age"],
-                phoneNumber=s.get("phoneNumber"),
-                email=s.get("email"),
-                groupID=s["groupID"],
-                guardians=s.get("guardians", [])
-            )
-            for s in students_data
-        ]
+        return [dict_to_student(s) for s in get_all_students()]
 
     @strawberry.field
     def student(self, student_id: int) -> Optional[Student]:
         try:
-            student_data = get_student_by_id(student_id)
+            get_student_by_id(student_id)
         except HTTPException:
             return None
-        
-        # get_student_by_id returns raw DB row, need to format guardians
-        guardians = []
-        if student_data.get("guardian1ID"):
-            # We'd need to fetch guardian names, but for now use empty list
-            # Or we could call get_all_students and find the matching one
-            pass
-        
-        # Try to get formatted student data from get_all_students
         all_students = get_all_students()
-        formatted_student = next((s for s in all_students if s["studentID"] == student_id), None)
-        
-        if formatted_student:
-            return Student(
-                studentID=formatted_student["studentID"],
-                firstName=formatted_student["firstName"],
-                lastName=formatted_student["lastName"],
-                age=formatted_student["age"],
-                phoneNumber=formatted_student.get("phoneNumber"),
-                email=formatted_student.get("email"),
-                groupID=formatted_student["groupID"],
-                guardians=formatted_student.get("guardians", [])
-            )
-        
-        # Fallback to raw data
-        return Student(
-            studentID=student_data["studentID"],
-            firstName=student_data["firstName"],
-            lastName=student_data["lastName"],
-            age=student_data["age"],
-            phoneNumber=student_data.get("phoneNumber"),
-            email=student_data.get("email"),
-            groupID=student_data["groupID"],
-            guardians=[]  # Can't get guardians from raw row easily
-        )
+        formatted = next((s for s in all_students if s["studentID"] == student_id), None)
+        return dict_to_student(formatted) if formatted else None
 
     @strawberry.field
     def groups(self) -> List[SmallGroup]:
         groups_data = get_groups()
-        # Convert dictionaries to SmallGroup objects
-        result = []
-        all_students = get_all_students()  # Get formatted students with guardians
-        students_dict = {s["studentID"]: s for s in all_students}
-        
-        for g in groups_data:
-            # Convert member dictionaries to Student objects
-            members = []
-            for m in g.get("members", []):
-                student_id = m["studentID"]
-                # Use formatted student data if available
-                formatted_student = students_dict.get(student_id, m)
-                members.append(Student(
-                    studentID=formatted_student["studentID"],
-                    firstName=formatted_student["firstName"],
-                    lastName=formatted_student["lastName"],
-                    age=formatted_student["age"],
-                    phoneNumber=formatted_student.get("phoneNumber"),
-                    email=formatted_student.get("email"),
-                    groupID=formatted_student["groupID"],
-                    guardians=formatted_student.get("guardians", [])
-                ))
-            result.append(SmallGroup(
+        students_dict = {s["studentID"]: s for s in get_all_students()}
+        return [
+            SmallGroup(
                 groupID=g["groupID"],
                 name=g.get("name"),
-                members=members
-            ))
-        return result
+                members=[dict_to_student(students_dict.get(m["studentID"], m)) for m in g.get("members", [])]
+            )
+            for g in groups_data
+        ]
 
     @strawberry.field
     def events(self) -> List[Event]:
-        events_data = get_all_events()
-        # Convert dictionaries to Event objects
-        return [
-            Event(
-                eventID=e["eventID"],
-                name=e.get("name"),
-                location=e["location"],
-                date=e["date"],
-                time=e["time"],
-                customFields=e.get("customFields")
-            )
-            for e in events_data
-        ]
+        return [dict_to_event(e) for e in get_all_events()]
 
     @strawberry.field
     def event(self, event_id: int) -> Optional[Event]:
         try:
-            event_data = get_event_data(event_id)
+            return dict_to_event(get_event_data(event_id))
         except HTTPException:
             return None
-        # Convert dictionary to Event object
-        return Event(
-            eventID=event_data["eventID"],
-            name=event_data.get("name"),
-            location=event_data["location"],
-            date=event_data["date"],
-            time=event_data["time"],
-            customFields=event_data.get("customFields")
-        )
 
     @strawberry.field
     def liveAttendance(self, event_id: int) -> LiveAttendanceResponse:
@@ -334,32 +269,8 @@ class Query:
 class Mutation:
 
     @strawberry.mutation
-    def createEvent(
-        self,
-        name: str,
-        location: str,
-        date: str,
-        time: str,
-        customFields: Optional[JSON] = None
-    ) -> Event:
-        """Create a new event"""
-        data = {
-            "name": name,
-            "location": location,
-            "date": date,
-            "time": time,
-            "customFields": customFields or {}
-        }
-        event_data = create_event(data)
-        # Convert dictionary to Event object
-        return Event(
-            eventID=event_data["eventID"],
-            name=event_data.get("name"),
-            location=event_data["location"],
-            date=event_data["date"],
-            time=event_data["time"],
-            customFields=event_data.get("customFields")
-        )
+    def createEvent(self, name: str, location: str, date: str, time: str, customFields: Optional[JSON] = None) -> Event:
+        return dict_to_event(create_event({"name": name, "location": location, "date": date, "time": time, "customFields": customFields or {}}))
 
     @strawberry.mutation
     def checkIn(self, event_id: int, student_id: int) -> CheckInResponse:

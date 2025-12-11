@@ -1297,7 +1297,6 @@ async function renderStudentUpcomingEvents(studentID, events) {
     const container = document.getElementById("student-upcoming-events");
     container.innerHTML = "";
 
-    console.log("renderStudentUpcomingEvents called with", events?.length || 0, "events");
     
     if (!events || events.length === 0) {
         container.innerHTML = '<div style="text-align: center; padding: var(--spacing-lg); color: var(--text-muted);">No upcoming events scheduled.</div>';
@@ -1326,7 +1325,6 @@ async function renderStudentUpcomingEvents(studentID, events) {
             const eventDateString = event.date; // Already in YYYY-MM-DD format
             const isUpcoming = eventDateString >= todayDateString;
             if (!isUpcoming) {
-                console.log("Filtered out past event:", event.name, "date:", event.date);
             }
             return isUpcoming;
         })
@@ -1336,7 +1334,6 @@ async function renderStudentUpcomingEvents(studentID, events) {
             return dateA - dateB;
         });
     
-    console.log("Upcoming events after filtering:", upcomingEvents.length, "out of", events.length);
 
     if (upcomingEvents.length === 0) {
         container.innerHTML = '<div style="text-align: center; padding: var(--spacing-lg); color: var(--text-muted);">No upcoming events scheduled.</div>';
@@ -1657,7 +1654,6 @@ function initEventForm() {
             const updatedEvents = await fetchData("/events", "events-loading");
             if (updatedEvents) {
                 allEvents = updatedEvents;
-                console.log("Events updated after creation. Total events:", allEvents.length);
             }
             renderAllEventViews(allEvents, currentCalendarDate);
             
@@ -1668,7 +1664,6 @@ function initEventForm() {
                 if (studentIDInput && studentIDInput.value) {
                     // Re-trigger the student lookup to refresh the view
                     const studentID = studentIDInput.value;
-                    console.log("Refreshing student dashboard for studentID:", studentID);
                     await refreshStudentView(studentID);
                 }
             }

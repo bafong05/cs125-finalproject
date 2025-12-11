@@ -1,5 +1,3 @@
-# main.py
-
 import sys
 import os
 import mysql.connector
@@ -16,9 +14,6 @@ from fastapi.middleware.cors import CORSMiddleware
 # Guard to prevent circular import when GraphQL schema imports from main
 GRAPHQL_IMPORT = "graphql_schema" in sys.modules
 
-# ====================================================================
-#  SECRET LOADER
-# ====================================================================
 def load_secret(name):
     path = os.path.join("secrets", f"{name}.txt")
     if os.path.exists(path):
@@ -26,10 +21,6 @@ def load_secret(name):
             return f.read().strip()
     raise Exception(f"Secret file {path} not found")
 
-
-# ====================================================================
-#  DATABASE INITIALIZATION
-# ====================================================================
 DB_USER = "root"
 DB_PASS = load_secret("mysql_password")
 DB_HOST = "mysql-cs125"
@@ -40,19 +31,12 @@ def mysql_connect():
         user=DB_USER,
         password=DB_PASS,
         host=DB_HOST,
-        database=DB_NAME
-    )
+        database=DB_NAME)
 
-# ====================================================================
-#  DATABASE CONNECTION VARIABLES (initialized in lifespan)
-# ====================================================================
 mongo_client = None
 mongo_db = None
 redis_client = None
 
-# ====================================================================
-#  DATABASE CONNECTION FUNCTIONS
-# ====================================================================
 def get_mongo_db():
     """Get MongoDB database instance"""
     global mongo_db
@@ -67,38 +51,25 @@ def get_redis_conn():
         raise RuntimeError("Redis not initialized. Call get_redis_client() first.")
     return redis_client
 
-# ====================================================================
-#  LIFESPAN MANAGEMENT
-# ====================================================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application startup and shutdown"""
     global mongo_client, mongo_db, redis_client
-    
-    # Startup: Initialize database connections
     print("Application startup: Initializing database connections...")
     
-    # MongoDB
     mongo_client = MongoClient(
         load_secret("mongo_url"),
         tls=True,
-        tlsAllowInvalidCertificates=True
-    )
+        tlsAllowInvalidCertificates=True)
     mongo_db = mongo_client["youth_group"]
-    
-    # Redis
+
     redis_client = redis.Redis(
         host="redis-13814.c258.us-east-1-4.ec2.cloud.redislabs.com",
         port=13814,
         password=load_secret("redis_password"),
-        decode_responses=True
-    )
-    
+        decode_responses=True)
     print("Database connections initialized successfully.")
-    
     yield
-    
-    # Shutdown: Close database connections
     print("Application shutdown: Closing database connections...")
     if mongo_client:
         mongo_client.close()
@@ -106,37 +77,17 @@ async def lifespan(app: FastAPI):
         redis_client.close()
     print("Database connections closed.")
 
-# ====================================================================
-#  FASTAPI SETUP
-# ====================================================================
 app = FastAPI(
     title="Youth Group API",
     description="Youth group system using MySQL + MongoDB + Redis.",
-    lifespan=lifespan
-)
+    lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # This should allow null origin, but browsers are strict
+    allow_origins=["*"],
     allow_headers=["*"],
     allow_methods=["*"],
-    allow_credentials=True,
-)
-
-# Add OPTIONS handler for preflight requests from file://
-@app.options("/{full_path:path}")
-async def options_handler(full_path: str):
-    """Handle CORS preflight requests"""
-    from fastapi.responses import Response
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "*",
-            "Access-Control-Allow-Headers": "*",
-        }
-    )
-
+    allow_credentials=True,)
 
 def list_tables():
     db = mysql_connect()
@@ -147,10 +98,20 @@ def list_tables():
     db.close()
     return tables
 
+@app.get("/", response_class=FileResponse)
+async def root():
+    """
+    Serves the main dashboard page.
+    """
+    index_path = os.path.join(os.path.dirname(__file__), "youth_group_frontend", "index.html")
+    if os.path.exists(index_path):
+        return index_path
+    return {"message": "Welcome to the Youth Group API!", "tables": list_tables()}
 
 # --------------------------
 # STUDENTS
 # --------------------------
+@app.get("/students")
 def get_all_students():
     try:
         db = mysql_connect()
@@ -168,7 +129,6 @@ def get_all_students():
         rows = cursor.fetchall()
         cursor.close()
         db.close()
-
         students = []
         for r in rows:
             guardians = []
@@ -176,7 +136,6 @@ def get_all_students():
                 guardians.append(f"{r['g1_first']} {r['g1_last']}")
             if r["g2_first"]:
                 guardians.append(f"{r['g2_first']} {r['g2_last']}")
-
             students.append({
                 "studentID": r["studentID"],
                 "firstName": r["firstName"],
@@ -185,73 +144,62 @@ def get_all_students():
                 "phoneNumber": r["phoneNumber"],
                 "email": r["email"],
                 "groupID": r["groupID"],
-                "guardians": guardians,
-            })
-
+                "guardians": guardians,})
         return students
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
+@app.get("/students/{student_id}")
 def get_student_by_id(student_id: int):
-    db = mysql_connect()
-    cur = db.cursor(dictionary=True)
-    cur.execute("SELECT * FROM Student WHERE studentID=%s;", (student_id,))
-    row = cur.fetchone()
-    cur.close()
-    db.close()
-
-    if not row:
-        raise HTTPException(status_code=404, detail="Student not found")
-
-    return row
-
-
+    try:
+        db = mysql_connect()
+        cur = db.cursor(dictionary=True)
+        cur.execute("SELECT * FROM Student WHERE studentID=%s;", (student_id,))
+        row = cur.fetchone()
+        cur.close()
+        db.close()
+        if not row:
+            raise HTTPException(status_code=404, detail="Student not found")
+        return row
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --------------------------
 # GROUPS
 # --------------------------
+@app.get("/groups")
 def get_groups():
-    db = mysql_connect()
-    cursor = db.cursor(dictionary=True)
-
-    cursor.execute("SELECT groupID, name FROM SmallGroup;")
-    groups = {
-        g["groupID"]: {"groupID": g["groupID"], "name": g["name"], "members": [], "leaderNames": []}
-        for g in cursor.fetchall()
-    }
-
-    cursor.execute("SELECT firstName, lastName, groupID FROM Leader;")
-    for row in cursor.fetchall():
-        groups[row["groupID"]]["leaderNames"].append(
-            f"{row['firstName']} {row['lastName']}"
-        )
-
-    cursor.execute("SELECT * FROM Student;")
-    for s in cursor.fetchall():
-        groups[s["groupID"]]["members"].append(s)
-
-    cursor.close()
-    db.close()
-    return list(groups.values())
-
-
+    try:
+        db = mysql_connect()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("SELECT groupID, name FROM SmallGroup;")
+        groups = {
+            g["groupID"]: {"groupID": g["groupID"], "name": g["name"], "members": [], "leaderNames": []}
+            for g in cursor.fetchall()}
+        cursor.execute("SELECT firstName, lastName, groupID FROM Leader;")
+        for row in cursor.fetchall():
+            groups[row["groupID"]]["leaderNames"].append(
+                f"{row['firstName']} {row['lastName']}")
+        cursor.execute("SELECT * FROM Student;")
+        for s in cursor.fetchall():
+            groups[s["groupID"]]["members"].append(s)
+        cursor.close()
+        db.close()
+        return list(groups.values())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --------------------------
 # EVENTS
 # --------------------------
-def create_event(event_data: dict):
-    """
-    Creates a new event in MySQL and stores customFields in MongoDB.
-    event_data should contain: name, location, date, time, customFields (optional)
-    """
+@app.post("/events")
+def create_event(event_data: dict = Body(...)):
+    """Creates a new event. eventID is auto-generated."""
+    if "eventID" in event_data:
+        del event_data["eventID"]
     db = mysql_connect()
     cursor = db.cursor(dictionary=True)
-    
     try:
-        # Insert into MySQL Event table
         cursor.execute("""
             INSERT INTO Event (name, location, date, time)
             VALUES (%s, %s, %s, %s)
@@ -259,39 +207,29 @@ def create_event(event_data: dict):
             event_data.get("name"),
             event_data.get("location"),
             event_data.get("date"),
-            event_data.get("time")
-        ))
+            event_data.get("time")))
         
-        # Get the auto-generated eventID
         event_id = cursor.lastrowid
         db.commit()
-        
-        # Store customFields in MongoDB if provided
         custom_fields = event_data.get("customFields", {})
         if custom_fields:
             try:
                 mongo = get_mongo_db()
                 mongo["event_data"].insert_one({
                     "eventID": event_id,
-                    "customFields": custom_fields
-                })
+                    "customFields": custom_fields})
             except Exception as mongo_err:
-                # Log but don't fail the event creation if MongoDB fails
                 print(f"Warning: Failed to store customFields in MongoDB: {mongo_err}")
-        
         cursor.close()
         db.close()
-        
-        # Return the created event (fetch it to ensure consistency)
         return get_event_data(event_id)
-        
     except Exception as e:
         db.rollback()
         cursor.close()
         db.close()
         raise HTTPException(status_code=500, detail=f"Failed to create event: {str(e)}")
 
-
+@app.get("/events")
 def get_all_events():
     try:
         db = mysql_connect()
@@ -303,8 +241,6 @@ def get_all_events():
         events = cursor.fetchall()
         cursor.close()
         db.close()
-
-        # Attach custom fields from Mongo
         db = get_mongo_db()
         for e in events:
             try:
@@ -313,14 +249,12 @@ def get_all_events():
             except Exception as mongo_err:
                 print(f"MongoDB error for event {e['eventID']}: {mongo_err}")
                 e["customFields"] = {}
-
         return events
     except Exception as e:
         print(f"Error in get_all_events: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch events: {str(e)}")
 
-
-
+@app.get("/events/{event_id}")
 def get_event_data(event_id: int):
     db = mysql_connect()
     cursor = db.cursor(dictionary=True)
@@ -331,32 +265,22 @@ def get_event_data(event_id: int):
     event = cursor.fetchone()
     cursor.close()
     db.close()
-
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-
     db = get_mongo_db()
     doc = db["event_data"].find_one({"eventID": event_id}, {"_id": 0})
     event["customFields"] = doc["customFields"] if doc else {}
-
     return event
 
-
-def update_event(event_id: int, event_data: dict):
-    """
-    Updates an existing event in MySQL and MongoDB.
-    event_data should contain: name, location, date, time, customFields (optional)
-    """
+@app.api_route("/events/{event_id}", methods=["PUT"])
+def update_event(event_id: int, event_data: Dict[str, Any] = Body(...)):
     db = mysql_connect()
     cursor = db.cursor(dictionary=True)
     
     try:
-        # Check if event exists
         cursor.execute("SELECT eventID FROM Event WHERE eventID=%s;", (event_id,))
         if not cursor.fetchone():
             raise HTTPException(status_code=404, detail="Event not found")
-        
-        # Update MySQL Event table
         cursor.execute("""
             UPDATE Event 
             SET name=%s, location=%s, date=%s, time=%s
@@ -366,35 +290,26 @@ def update_event(event_id: int, event_data: dict):
             event_data.get("location"),
             event_data.get("date"),
             event_data.get("time"),
-            event_id
-        ))
-        
+            event_id))
         db.commit()
-        
         custom_fields = event_data.get("customFields", {})
         mongo = get_mongo_db()
         existing_doc = mongo["event_data"].find_one({"eventID": event_id})
-        
         if custom_fields:
             if existing_doc:
                 mongo["event_data"].update_one(
                     {"eventID": event_id},
-                    {"$set": {"customFields": custom_fields}}
-                )
+                    {"$set": {"customFields": custom_fields}})
             else:
                 mongo["event_data"].insert_one({
                     "eventID": event_id,
-                    "customFields": custom_fields
-                })
+                    "customFields": custom_fields})
         else:
             if existing_doc:
                 mongo["event_data"].delete_one({"eventID": event_id})
-        
         cursor.close()
         db.close()
-        
         return get_event_data(event_id)
-        
     except HTTPException:
         raise
     except Exception as e:
@@ -403,35 +318,22 @@ def update_event(event_id: int, event_data: dict):
         db.close()
         raise HTTPException(status_code=500, detail=f"Failed to update event: {str(e)}")
 
-
+@app.api_route("/events/{event_id}", methods=["DELETE"])
 def delete_event(event_id: int):
-    """
-    Deletes an event from MySQL and MongoDB.
-    Note: MySQL foreign key constraints will handle cascading deletes.
-    """
     db = mysql_connect()
     cursor = db.cursor(dictionary=True)
-    
     try:
-        # Check if event exists
         cursor.execute("SELECT eventID FROM Event WHERE eventID=%s;", (event_id,))
         if not cursor.fetchone():
             raise HTTPException(status_code=404, detail="Event not found")
-        
-        # Delete from MySQL (cascades to related tables)
         cursor.execute("DELETE FROM Event WHERE eventID=%s;", (event_id,))
         db.commit()
-        
-        # Delete from MongoDB
         mongo = get_mongo_db()
         mongo["event_data"].delete_many({"eventID": event_id})
         mongo["walk_ins"].delete_many({"eventID": event_id})
-        
         cursor.close()
         db.close()
-        
         return {"message": "Event deleted successfully", "eventID": event_id}
-        
     except HTTPException:
         raise
     except Exception as e:
@@ -440,26 +342,18 @@ def delete_event(event_id: int):
         db.close()
         raise HTTPException(status_code=500, detail=f"Failed to delete event: {str(e)}")
 
-
 # --------------------------
 # STUDENT ATTENDANCE HISTORY
 # --------------------------
+@app.get("/attendance/{student_id}")
 def get_student_attendance_history(student_id: int):
-    """
-    Returns attendance history for a specific student.
-    Includes registered attendees (from MySQL Attendance) and walk-ins (from MongoDB).
-    Shows registration status for each event.
-    """
+    """Returns attendance history for a specific student"""
     db = mysql_connect()
     cursor = db.cursor(dictionary=True)
-    
     try:
-        # Check if student exists
         cursor.execute("SELECT studentID FROM Student WHERE studentID=%s;", (student_id,))
         if not cursor.fetchone():
             raise HTTPException(status_code=404, detail="Student not found")
-        
-        # Get registered attendance history with event details and registration status
         cursor.execute("""
             SELECT 
                 a.attendanceID,
@@ -477,17 +371,11 @@ def get_student_attendance_history(student_id: int):
             WHERE a.studentID = %s
             ORDER BY e.date DESC, a.checkInTime DESC
         """, (student_id,))
-        
         registered_records = cursor.fetchall()
-        
-        # Get walk-ins from MongoDB
         mongo = get_mongo_db()
         walk_ins = list(mongo["walk_ins"].find({"studentID": student_id}, {"_id": 0}))
-        
-        # Get event IDs for walk-ins to fetch event details in one query
         walk_in_event_ids = [w.get("eventID") for w in walk_ins if w.get("eventID")]
         walk_in_records = []
-        
         if walk_in_event_ids:
             placeholders = ','.join(['%s'] * len(walk_in_event_ids))
             cursor.execute(f"""
@@ -496,8 +384,6 @@ def get_student_attendance_history(student_id: int):
                 WHERE eventID IN ({placeholders})
             """, tuple(walk_in_event_ids))
             events_dict = {row["eventID"]: row for row in cursor.fetchall()}
-            
-            # Match walk-ins with events
             for walk_in in walk_ins:
                 event_id = walk_in.get("eventID")
                 if event_id in events_dict:
@@ -507,18 +393,12 @@ def get_student_attendance_history(student_id: int):
                         "eventName": event["name"],
                         "date": str(event["date"]),
                         "checkInTime": str(walk_in.get("checkInTime")) if walk_in.get("checkInTime") else None,
-                        "checkOutTime": None,  # Walk-ins don't have check-out times
-                        "isRegistered": False,  # Walk-ins are never registered
-                        "isWalkIn": True
-                    })
-        
+                        "checkOutTime": None,
+                        "isRegistered": False,
+                        "isWalkIn": True})
         cursor.close()
         db.close()
-        
-        # Combine and format the response
         attendance_history = []
-        
-        # Process registered attendees
         for record in registered_records:
             attendance_history.append({
                 "eventName": record["eventName"],
@@ -526,25 +406,17 @@ def get_student_attendance_history(student_id: int):
                 "checkInTime": str(record["checkInTime"]) if record["checkInTime"] else None,
                 "checkOutTime": str(record["checkOutTime"]) if record["checkOutTime"] else None,
                 "isRegistered": bool(record["isRegistered"]),
-                "isWalkIn": False
-            })
-        
-        # Process walk-ins
+                "isWalkIn": False})
         for record in walk_in_records:
             attendance_history.append({
                 "eventName": record["eventName"],
                 "date": record["date"],
                 "checkInTime": record["checkInTime"],
                 "checkOutTime": None,
-                "isRegistered": False,  # Walk-ins are never registered
-                "isWalkIn": True
-            })
-        
-        # Sort by date descending, then by check-in time descending
+                "isRegistered": False,
+                "isWalkIn": True})
         attendance_history.sort(key=lambda x: (x["date"], x["checkInTime"] or ""), reverse=True)
-        
         return attendance_history
-        
     except HTTPException:
         raise
     except Exception as e:
@@ -552,165 +424,108 @@ def get_student_attendance_history(student_id: int):
         db.close()
         raise HTTPException(status_code=500, detail=f"Failed to fetch attendance history: {str(e)}")
 
-
-
-# --------------------------
-# ATTENDANCE – REDIS SET
-# --------------------------
+# -----------
+# ATTENDANCE 
+# -----------
 
 CHECKED_IN_KEY = lambda eid: f"event:{eid}:checkedIn"
-ATTENDEES_KEY = lambda eid: f"event:{eid}:attendees"  # Tracks all who checked in (even if checked out)
+ATTENDEES_KEY = lambda eid: f"event:{eid}:attendees"
 
+@app.post("/events/{event_id}/checkin/{student_id}")
 def check_in(event_id: int, student_id: int):
-
-    # Validate IDs
     db = mysql_connect()
     cur = db.cursor(dictionary=True)
     cur.execute("SELECT eventID FROM Event WHERE eventID=%s;", (event_id,))
     if not cur.fetchone():
         raise HTTPException(status_code=404, detail="Event not found")
-
     cur.execute("SELECT studentID FROM Student WHERE studentID=%s;", (student_id,))
     if not cur.fetchone():
         raise HTTPException(status_code=404, detail="Student not found")
-
     cur.close()
     db.close()
-
-    # Redis SET add - add to both checkedIn (current) and attendees (all-time)
     r = get_redis_conn()
     r.sadd(CHECKED_IN_KEY(event_id), str(student_id))
-    r.sadd(ATTENDEES_KEY(event_id), str(student_id))  # Track all attendees
-
+    r.sadd(ATTENDEES_KEY(event_id), str(student_id))
     return {"message": "checked in", "eventID": event_id, "studentID": student_id}
 
-
-
+@app.post("/events/{event_id}/checkout/{student_id}")
 def check_out(event_id: int, student_id: int):
     r = get_redis_conn()
     if not r.sismember(CHECKED_IN_KEY(event_id), str(student_id)):
         raise HTTPException(status_code=400, detail="Student is not checked in")
-
-    # Remove from checkedIn but keep in attendees (so they're still counted in total)
     r.srem(CHECKED_IN_KEY(event_id), str(student_id))
-    # Note: We DON'T remove from ATTENDEES_KEY - they still count as attendees
-
     return {"message": "checked out", "eventID": event_id, "studentID": student_id}
 
-
-
+@app.get("/events/{event_id}/live")
 def live_attendance(event_id: int):
     r = get_redis_conn()
     raw = r.smembers(CHECKED_IN_KEY(event_id))
     ids = sorted(int(x) for x in raw)
-
-    # Fetch student names from MySQL
     checked_in_students = []
     if ids:
         db = mysql_connect()
         cursor = db.cursor(dictionary=True)
         placeholders = ','.join(['%s'] * len(ids))
-        cursor.execute(
-            f"SELECT studentID, firstName, lastName FROM Student WHERE studentID IN ({placeholders})",
-            ids
-        )
+        cursor.execute(f"SELECT studentID, firstName, lastName FROM Student WHERE studentID IN ({placeholders})",ids)
         students = cursor.fetchall()
         cursor.close()
         db.close()
-        
-        # Create a map of studentID to name
         student_map = {s["studentID"]: f"{s['firstName']} {s['lastName']}" for s in students}
-        
-        # Build checkedInStudents array with both ID and name
-        checked_in_students = [
-            {
+        checked_in_students = [{
                 "studentID": sid,
                 "name": student_map.get(sid, f"Student {sid}")
-            }
-            for sid in ids
-        ]
-
+            }for sid in ids]
     return {
         "eventID": event_id,
         "checkedIn": ids,
         "count": len(ids),
-        "checkedInStudents": checked_in_students
-    }
-
-
+        "checkedInStudents": checked_in_students}
 
 # --------------------------
 # FINALIZE EVENT
 # --------------------------
+@app.post("/events/{event_id}/finalize")
 def finalize_event(event_id: int):
-    """
-    Your chosen finalize_event:
-    ✔ Uses Redis SET
-    ✔ Saves registered → MySQL Attendance
-    ✔ Saves walk-ins → MongoDB walk_ins
-    ✔ Deletes old Attendance for re-finalization
-    """
-
     db = mysql_connect()
     cur = db.cursor(dictionary=True)
-
-    # Validate event
     cur.execute("SELECT eventID FROM Event WHERE eventID=%s;", (event_id,))
     if not cur.fetchone():
         raise HTTPException(status_code=404, detail="Event not found")
-
-    # Pull attendance from Redis - use ATTENDEES_KEY to get ALL who checked in (including those who checked out)
     r = get_redis_conn()
     redis_raw = r.smembers(ATTENDEES_KEY(event_id))
     attendees = sorted(int(x) for x in redis_raw)
-
-    # Clear previous finalization
     cur.execute("DELETE FROM Attendance WHERE eventID=%s;", (event_id,))
     mongo = get_mongo_db()
     mongo["walk_ins"].delete_many({"eventID": event_id})
-
     registered = []
     walk_ins = []
-    
-    # Deduplicate attendees set (in case of any duplicates)
     unique_attendees = sorted(set(attendees))
-
     for sid in unique_attendees:
-        # Check if already exists to prevent duplicates
         cur.execute("SELECT 1 FROM Attendance WHERE studentID=%s AND eventID=%s;", (sid, event_id))
         already_registered = cur.fetchone()
-        
         cur.execute("SELECT 1 FROM Registration WHERE studentID=%s AND eventID=%s;",
                     (sid, event_id))
         is_registered = cur.fetchone()
-
         if is_registered:
-            if not already_registered:  # Only insert if not already there
+            if not already_registered:
                 cur.execute(
                     "INSERT INTO Attendance (studentID, eventID, checkInTime) VALUES (%s, %s, NOW())",
-                    (sid, event_id)
-                )
+                    (sid, event_id))
             registered.append(sid)
         else:
-            # Check if walk-in already exists in MongoDB
             existing_walkin = mongo["walk_ins"].find_one({"eventID": event_id, "studentID": sid})
-            if not existing_walkin:  # Only insert if not already there
+            if not existing_walkin:
                 mongo["walk_ins"].insert_one({
                     "eventID": event_id,
                     "studentID": sid,
-                    "checkInTime": datetime.now()
-                })
+                    "checkInTime": datetime.now()})
             walk_ins.append(sid)
-
     db.commit()
     cur.close()
     db.close()
-
-    # Clear Redis keys
     r = get_redis_conn()
     r.delete(CHECKED_IN_KEY(event_id))
     r.delete(ATTENDEES_KEY(event_id))
-
     return {
         "message": "Event finalized successfully",
         "eventID": event_id,
@@ -718,28 +533,22 @@ def finalize_event(event_id: int):
         "walkInsLogged": walk_ins,
         "totalRegistered": len(registered),
         "totalWalkIns": len(walk_ins),
-        "totalAttendees": len(registered) + len(walk_ins)
-    }
-
-
+        "totalAttendees": len(registered) + len(walk_ins)}
 
 # --------------------------
 # VIEW FINALIZED ATTENDANCE
 # --------------------------
+@app.get("/events/{event_id}/finalized")
+@app.get("/events/{event_id}/attendance")
 def get_finalized_attendance_view(event_id: int):
-    # Check if event exists and get event date/time
     db = mysql_connect()
     cur = db.cursor(dictionary=True)
-    
     cur.execute("SELECT eventID, name, date, time FROM Event WHERE eventID=%s;", (event_id,))
     event = cur.fetchone()
-    
     if not event:
         cur.close()
         db.close()
         raise HTTPException(status_code=404, detail="Event not found")
-    
-    # Load registered attendees from MySQL (deduplicate by studentID)
     cur.execute("""
         SELECT a.studentID, s.firstName, s.lastName
         FROM Attendance a
@@ -748,40 +557,29 @@ def get_finalized_attendance_view(event_id: int):
         GROUP BY a.studentID, s.firstName, s.lastName;
     """, (event_id,))
     registered = cur.fetchall()
-
-    # Load walk-ins from MongoDB (deduplicate by studentID, keep earliest checkInTime)
     mongo = get_mongo_db()
     walkins_raw = list(mongo["walk_ins"].find({"eventID": event_id}, {"_id": 0}))
-    
-    # Deduplicate walk-ins by studentID, keeping the earliest checkInTime
     walkins_dict = {}
     for w in walkins_raw:
         student_id = w["studentID"]
         if student_id not in walkins_dict:
             walkins_dict[student_id] = w
         else:
-            # Keep the one with earlier checkInTime
             existing_time = walkins_dict[student_id].get("checkInTime")
             new_time = w.get("checkInTime")
             if new_time and (not existing_time or new_time < existing_time):
                 walkins_dict[student_id] = w
-    
     walkin_ids = list(walkins_dict.keys())
-    
-    # Fetch student names for walk-ins
     walkin_students = {}
     if walkin_ids:
         placeholders = ','.join(['%s'] * len(walkin_ids))
         cur.execute(
             f"SELECT studentID, firstName, lastName FROM Student WHERE studentID IN ({placeholders})",
-            walkin_ids
-        )
+            walkin_ids)
         for row in cur.fetchall():
             walkin_students[row["studentID"]] = {
                 "firstName": row["firstName"],
-                "lastName": row["lastName"]
-            }
-    
+                "lastName": row["lastName"]}
     walkins_list = []
     for student_id, w in walkins_dict.items():
         student_info = walkin_students.get(student_id, {})
@@ -789,19 +587,12 @@ def get_finalized_attendance_view(event_id: int):
             "studentID": student_id,
             "firstName": student_info.get("firstName", "Unknown"),
             "lastName": student_info.get("lastName", ""),
-            "isWalkIn": True
-        })
-
+            "isWalkIn": True})
     cur.close()
     db.close()
-    
-    # Check if event has been started (has any data in Redis or finalized data)
-    # Check both checkedIn (current) and attendees (all-time) sets
     r = get_redis_conn()
     has_redis_data = r.exists(CHECKED_IN_KEY(event_id)) or r.exists(ATTENDEES_KEY(event_id))
     has_finalized_data = len(registered) > 0 or len(walkins_list) > 0
-    
-    # If no data at all (not started, not finalized), return "hasn't started" message
     if not has_redis_data and not has_finalized_data:
         return {
             "eventID": event_id,
@@ -812,16 +603,11 @@ def get_finalized_attendance_view(event_id: int):
             "totalRegistered": 0,
             "totalWalkIns": 0,
             "totalAttendees": 0,
-            "hasFinalizedData": False
-        }
-    
-    # If there's finalized data, return it
+            "hasFinalizedData": False}
     if has_finalized_data:
-        # Calculate counts from actual arrays (ensures accuracy)
         registered_count = len(registered) if registered else 0
         walkins_count = len(walkins_list) if walkins_list else 0
         total_count = registered_count + walkins_count
-        
         return {
             "eventID": event_id,
             "status": "finalized",
@@ -831,10 +617,7 @@ def get_finalized_attendance_view(event_id: int):
             "totalRegistered": registered_count,
             "totalWalkIns": walkins_count,
             "totalAttendees": total_count,
-            "hasFinalizedData": True
-        }
-    
-    # If there's Redis data but not finalized yet
+            "hasFinalizedData": True}
     return {
         "eventID": event_id,
         "status": "in_progress",
@@ -844,152 +627,29 @@ def get_finalized_attendance_view(event_id: int):
         "totalRegistered": 0,
         "totalWalkIns": 0,
         "totalAttendees": 0,
-        "hasFinalizedData": False
-    }
+        "hasFinalizedData": False}
 
-
-# ====================================================================
-# REST ROUTES
-# ====================================================================
-
-@app.get("/", response_class=FileResponse)
-async def root():
-    """
-    Serves the main dashboard page.
-    """
-    index_path = os.path.join(os.path.dirname(__file__), "youth_group_frontend", "index.html")
-    if os.path.exists(index_path):
-        return index_path
-    return {"message": "Welcome to the Youth Group API!", "tables": list_tables()}
-
-
-@app.get("/students")
-def route_students():
-    return get_all_students()
-
-
-@app.get("/students/{student_id}")
-def route_student(student_id: int):
-    return get_student_by_id(student_id)
-
-
-@app.get("/groups")
-def route_groups():
-    return get_groups()
-
-
-@app.get("/events")
-def route_events():
-    return get_all_events()
-
-
-@app.post("/events")
-def route_create_event(event_data: dict = Body(...)):
-    """
-    Creates a new event.
-    Expected body: { name, location, date, time, customFields (optional) }
-    Note: eventID is auto-generated by MySQL, so it should not be included in the request.
-    """
-    try:
-        # Remove eventID if provided (it will be auto-generated)
-        if "eventID" in event_data:
-            del event_data["eventID"]
-        
-        return create_event(event_data)
-    except Exception as e:
-        import traceback
-        print(f"Error creating event: {e}")
-        print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Failed to create event: {str(e)}")
-
-
-@app.api_route("/events/{event_id}", methods=["PUT"])
-def route_update_event(event_id: int, event_data: Dict[str, Any] = Body(...)):
-    """
-    Updates an existing event.
-    Expected body: { name, location, date, time, customFields (optional) }
-    """
-    return update_event(event_id, event_data)
-
-
-@app.api_route("/events/{event_id}", methods=["DELETE"])
-def route_delete_event(event_id: int):
-    """
-    Deletes an event.
-    Note: This will cascade delete related records (registrations, attendance, etc.)
-    """
-    return delete_event(event_id)
-
-
-@app.get("/events/{event_id}")
-def route_event(event_id: int):
-    return get_event_data(event_id)
-
-
-@app.post("/events/{event_id}/checkin/{student_id}")
-def route_checkin(event_id: int, student_id: int):
-    return check_in(event_id, student_id)
-
-
-@app.post("/events/{event_id}/checkout/{student_id}")
-def route_checkout(event_id: int, student_id: int):
-    return check_out(event_id, student_id)
-
-
-@app.get("/events/{event_id}/live")
-def route_live(event_id: int):
-    return live_attendance(event_id)
-
-
-@app.post("/events/{event_id}/finalize")
-def route_finalize(event_id: int):
-    return finalize_event(event_id)
-
-
-@app.get("/events/{event_id}/finalized")
-def route_finalized(event_id: int):
-    return get_finalized_attendance_view(event_id)
-
-
-@app.get("/events/{event_id}/attendance")
-def route_attendance(event_id: int):
-    """Alias for /finalized endpoint to match frontend expectations"""
-    return get_finalized_attendance_view(event_id)
-
-
-@app.get("/attendance/{student_id}")
-def route_student_attendance(student_id: int):
-    """Returns attendance history for a specific student"""
-    return get_student_attendance_history(student_id)
-
-
+# --------------------------
+# STUDENT REGISTRATIONS
+# --------------------------
 @app.get("/students/{student_id}/registrations")
-def route_student_registrations(student_id: int):
-    """Returns list of event IDs that a student is registered for"""
+def get_student_registrations(student_id: int):
     db = mysql_connect()
     cursor = db.cursor(dictionary=True)
-    
     try:
-        # Check if student exists
         cursor.execute("SELECT studentID FROM Student WHERE studentID=%s;", (student_id,))
         if not cursor.fetchone():
             raise HTTPException(status_code=404, detail="Student not found")
-        
-        # Get registered event IDs
         cursor.execute("""
             SELECT eventID 
             FROM Registration 
             WHERE studentID = %s
         """, (student_id,))
-        
         registrations = cursor.fetchall()
         registered_event_ids = [r["eventID"] for r in registrations]
-        
         cursor.close()
         db.close()
-        
         return {"studentID": student_id, "registeredEvents": registered_event_ids}
-        
     except HTTPException:
         raise
     except Exception as e:
@@ -997,25 +657,17 @@ def route_student_registrations(student_id: int):
         db.close()
         raise HTTPException(status_code=500, detail=f"Failed to fetch registrations: {str(e)}")
 
-
 @app.post("/students/{student_id}/registrations/{event_id}")
-def route_register_student(student_id: int, event_id: int):
-    """Register a student for an event"""
+def register_student(student_id: int, event_id: int):
     db = mysql_connect()
     cursor = db.cursor(dictionary=True)
-    
     try:
-        # Check if student exists
         cursor.execute("SELECT studentID FROM Student WHERE studentID=%s;", (student_id,))
         if not cursor.fetchone():
             raise HTTPException(status_code=404, detail="Student not found")
-        
-        # Check if event exists
         cursor.execute("SELECT eventID FROM Event WHERE eventID=%s;", (event_id,))
         if not cursor.fetchone():
             raise HTTPException(status_code=404, detail="Event not found")
-        
-        # Check if already registered
         cursor.execute("""
             SELECT 1 FROM Registration 
             WHERE studentID=%s AND eventID=%s
@@ -1024,19 +676,14 @@ def route_register_student(student_id: int, event_id: int):
             cursor.close()
             db.close()
             return {"message": "Student already registered for this event", "studentID": student_id, "eventID": event_id}
-        
-        # Register student
         cursor.execute("""
             INSERT INTO Registration (studentID, eventID)
             VALUES (%s, %s)
         """, (student_id, event_id))
-        
         db.commit()
         cursor.close()
         db.close()
-        
         return {"message": "Student registered successfully", "studentID": student_id, "eventID": event_id}
-        
     except HTTPException:
         raise
     except Exception as e:
@@ -1045,25 +692,17 @@ def route_register_student(student_id: int, event_id: int):
         db.close()
         raise HTTPException(status_code=500, detail=f"Failed to register student: {str(e)}")
 
-
 @app.delete("/students/{student_id}/registrations/{event_id}")
-def route_unregister_student(student_id: int, event_id: int):
-    """Unregister a student from an event"""
+def unregister_student(student_id: int, event_id: int):
     db = mysql_connect()
     cursor = db.cursor(dictionary=True)
-    
     try:
-        # Check if student exists
         cursor.execute("SELECT studentID FROM Student WHERE studentID=%s;", (student_id,))
         if not cursor.fetchone():
             raise HTTPException(status_code=404, detail="Student not found")
-        
-        # Check if event exists
         cursor.execute("SELECT eventID FROM Event WHERE eventID=%s;", (event_id,))
         if not cursor.fetchone():
             raise HTTPException(status_code=404, detail="Event not found")
-        
-        # Check if registered
         cursor.execute("""
             SELECT 1 FROM Registration 
             WHERE studentID=%s AND eventID=%s
@@ -1072,19 +711,14 @@ def route_unregister_student(student_id: int, event_id: int):
             cursor.close()
             db.close()
             return {"message": "Student not registered for this event", "studentID": student_id, "eventID": event_id}
-        
-        # Unregister student
         cursor.execute("""
             DELETE FROM Registration 
             WHERE studentID=%s AND eventID=%s
         """, (student_id, event_id))
-        
         db.commit()
         cursor.close()
         db.close()
-        
         return {"message": "Student unregistered successfully", "studentID": student_id, "eventID": event_id}
-        
     except HTTPException:
         raise
     except Exception as e:
@@ -1093,18 +727,17 @@ def route_unregister_student(student_id: int, event_id: int):
         db.close()
         raise HTTPException(status_code=500, detail=f"Failed to unregister student: {str(e)}")
 
-
-
 # =================================
 #  GRAPHQL ENDPOINT 
 # =================================
-from strawberry.fastapi import GraphQLRouter
-from graphql_schema import schema
+# Lazy import to avoid circular dependency
+def setup_graphql():
+    from strawberry.fastapi import GraphQLRouter
+    from graphql_schema import schema
+    graphql_app = GraphQLRouter(schema, graphiql=True)
+    app.include_router(graphql_app, prefix="/graphql")
 
-graphql_app = GraphQLRouter(schema, graphiql=True)
-
-app.include_router(graphql_app, prefix="/graphql")
-
+setup_graphql()
 
 @app.get("/demo", response_class=FileResponse)
 async def read_demo():

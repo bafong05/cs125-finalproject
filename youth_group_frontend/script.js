@@ -582,25 +582,7 @@ function showEventDetailsPopup(eventID, e) {
     // Initial attendance update
     updateLiveAttendance(event.eventID);
     
-    // Set up auto-refresh every 3 seconds
-    if (attendanceRefreshInterval) {
-        clearInterval(attendanceRefreshInterval);
-    }
-    attendanceRefreshInterval = setInterval(() => {
-        if (currentPopupEventID === event.eventID) {
-            updateLiveAttendance(event.eventID);
-        }
-    }, 3000);
-    
-    // Set up auto-refresh every 3 seconds
-    if (attendanceRefreshInterval) {
-        clearInterval(attendanceRefreshInterval);
-    }
-    attendanceRefreshInterval = setInterval(() => {
-        if (currentPopupEventID === event.eventID) {
-            updateLiveAttendance(event.eventID);
-        }
-    }, 3000);
+    // Auto-refresh removed - user can manually refresh if needed
 }
 
 // Helper to escape HTML

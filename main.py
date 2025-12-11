@@ -372,27 +372,36 @@ def get_student_attendance_history(student_id: int):
             ORDER BY e.date DESC, a.checkInTime DESC
         """, (student_id,))
         registered_records = cursor.fetchall()
+
         mongo = get_mongo_db()
         walk_ins = list(mongo["walk_ins"].find({"studentID": student_id}, {"_id": 0}))
+
         walk_in_event_ids = [w.get("eventID") for w in walk_ins if w.get("eventID")]
         walk_in_records = []
+
         if walk_in_event_ids:
             placeholders = ','.join(['%s'] * len(walk_in_event_ids))
+
             cursor.execute(f"""
                 SELECT eventID, name, date, time
                 FROM Event
                 WHERE eventID IN ({placeholders})
             """, tuple(walk_in_event_ids))
+
             events_dict = {row["eventID"]: row for row in cursor.fetchall()}
+
             for walk_in in walk_ins:
                 event_id = walk_in.get("eventID")
+
                 if event_id in events_dict:
                     event = events_dict[event_id]
+
                     walk_in_records.append({
                         "eventID": event_id,
                         "eventName": event["name"],
                         "date": str(event["date"]),
-                        "checkInTime": str(walk_in.get("checkInTime")) if walk_in.get("checkInTime") else None,
+                        "checkInTime": str(walk_in.get("checkInTime")) 
+                        if walk_in.get("checkInTime") else None,
                         "checkOutTime": None,
                         "isRegistered": False,
                         "isWalkIn": True})

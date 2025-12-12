@@ -82,6 +82,11 @@ app = FastAPI(
     description="Youth group system using MySQL + MongoDB + Redis.",
     lifespan=lifespan)
 
+app.mount(
+    "/frontend",
+    StaticFiles(directory="youth_group_frontend"),
+    name="frontend")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -797,18 +802,13 @@ setup_graphql()
 
 @app.get("/demo", response_class=FileResponse)
 async def read_demo():
-    """
-    Alias for root - serves the demo HTML page.
-    """
-    index_path = os.path.join(os.path.dirname(__file__), "youth_group_frontend", "index.html")
-    if os.path.exists(index_path):
-        return index_path
-    return {"message": "Welcome to the Youth Group API!", "tables": list_tables()}
+    return "youth_group_frontend/index.html"
+
 
 if __name__ == "__main__":
     print("\nTo run this FastAPI application:")
     print("1. pip install -r requirements.txt")
-    print("2. cd youth_group_backend")
+    print("2. cd youth_group_frontend")
     print("3. uvicorn main:app --reload --port 8000")
     print("4. Visit http://127.0.0.1:8000/docs for REST API docs")
     print("5. Visit http://127.0.0.1:8000/demo for demo")

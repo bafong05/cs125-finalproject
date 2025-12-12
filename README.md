@@ -1,122 +1,102 @@
 # Youth Group Database Management System
+
 **Westmont College Fall 2025**
 
 **CS 125 Database Design**
 
-*Professor* Mike Ryu (mryu@westmont.edu) 
+*Professor* Mike Ryu (mryu@westmont.edu)
 
 ## Author Information
+
 * **Team Name**: Backcourt (Bailey Fong, James Dodson)
 * **Email(s)**: bafong@westmont.edu, jdodson@westmont.edu
 
-## Execution/Demo Instructions
+## Running the Backend (Docker)
 
-To run the complete demo, follow these steps in order:
+### 1. Clone the Repository
 
-1. **Install Dependencies:**
+```bash
+git clone <repository-url>
+cd <repository-name>
+```
 
-    ```bash
-    pip install -r requirements.txt
-    ```
+### 2. Set Up Secrets
 
-2. **Set up the Databases:**
+Create a `secrets/` directory at the project root with the following files:
 
-    You need to run the setup scripts to populate the databases with sample data.
+```
+secrets/
+├── mysql_password.txt
+├── mongo_url.txt
+└── redis_password.txt
+```
 
-    *   **MySQL:** Make sure your MySQL server is running and that you have created the `youth_group` database and its tables by executing the `schema.sql` script, then populate it with sample data using `data.sql`.
+Each file should contain only the secret value (no extra whitespace or newlines).
 
-    *   **MongoDB:** Run the MongoDB setup script:
+### 3. Install Dependencies
 
-        ```bash
-        python3 setup_mongo.py
-        ```
+```bash
+pip install -r requirements.txt
+```
 
-    *   **Redis:** Redis will be used automatically for live attendance tracking. Make sure your Redis server is running.
+### 4. Initialize Databases
 
-3. **Set up Secrets:**
+If running the project for the first time, initialize the databases:
 
-    Create a `secrets` directory in the project root and add files containing your credentials:
-    - `mysql_password.txt`: Your MySQL root password
-    - `mongo_url.txt`: Your MongoDB connection string
-    - `redis_password.txt`: Your Redis password (if required)
+```bash
+mysql -u root -p < schema.sql
+mysql -u root -p < data.sql
+python3 setup_mongo.py
+```
 
-4. **Run the FastAPI Server:**
+### 5. Run the Docker Container
 
-    Start the application from the project root:
+1. **Build the Docker Image:**
 
-    ```bash
-    uvicorn main:app --reload --port 8000
-    ```
+   ```bash
+   docker build -t youth-group-api .
+   ```
 
-5.  **Access the Demo:**
+2. **Run the Docker Container:**
 
-    *   Open your web browser and go to **http://127.0.0.1:8000** to see the Youth Group Dashboard. The dashboard includes:
-        - **Leader Dashboard**: Manage students, small groups, events, and attendance
-        - **Student Dashboard**: View student information, upcoming events, and attendance history
-        - **GraphQL Explorer**: Interactive tool to test GraphQL queries and mutations
+   ```bash
+   docker run --name youth-group-api \
+     --network cs125-net \
+     -p 8000:8000 \
+     youth-group-api
+   ```
 
-    *   Go to **http://127.0.0.1:8000/graphql** to interact with the GraphQL API via the GraphiQL interface.
+## Access Points
 
-    *   Go to **http://127.0.0.1:8000/docs** to see the REST API documentation.
+Once the application is running:
 
-## Running the Backend in Docker
+* **Dashboard:** http://127.0.0.1:8000
+* **GraphQL API (GraphiQL):** http://127.0.0.1:8000/graphql
+* **REST API Docs:** http://127.0.0.1:8000/docs
 
-1.  **Build the Docker Image:**
+## GraphQL Examples
 
-    From the project root directory, run the `docker build` command:
+The following examples can be run in the GraphiQL interface at `http://127.0.0.1:8000/graphql`.
 
-    ```bash
-    docker build -t youth-group-api .
-    ```
+### Queries
 
-2.  **Run the Docker Container:**
-
-    The command to run the container differs slightly depending on your operating system due to how Docker networking is handled.
-
-    **For Docker Desktop (macOS or Windows):**
-
-    Docker Desktop provides a special DNS name `host.docker.internal` that containers can use to connect to services running on the host machine. The `Dockerfile` is already configured to use this.
-
-    Execute this command from your project root:
-
-    ```bash
-    docker run --rm -it \
-      -p 8000:8000 \
-      -v "$(pwd)/secrets:/app/secrets" \
-      youth-group-api
-    ```
-3.  **Access the Demo:**
-
-    Once the container is running, the API and demo page are available at the same URLs as before:
-
-    *   **Dashboard:** http://127.0.0.1:8000
-    *   **GraphQL API:** http://127.0.0.1:8000/graphql
-    *   **REST API Docs:** http://127.0.0.1:8000/docs
-
-## Sample GraphQL Queries
-
-Here are some example queries you can run in the GraphiQL interface (available at `http://127.0.0.1:8000/graphql`) to see how the API works.
-
----
-
-### Query 1: Get All Students (Basic)
-
-This query fetches a list of all students, only asking for their first and last names
+#### Get All Students
 
 ```graphql
 query GetAllStudents {
   students {
+    studentID
     firstName
     lastName
+    age
+    email
+    phoneNumber
+    groupID
   }
 }
 ```
 
----
-
-### Query 2: Get a Single Student by ID
-
-This query uses an argument (`student_id`) to fetch a specific student.
+#### Get a Single Student by ID
 
 ```graphql
 query GetStudentById {
@@ -135,9 +115,9 @@ query GetStudentById {
 
 ---
 
-### Query 3: The "Trifecta" - Live Attendance
+#### Get Live Attendance
 
-This query retrieves live attendance data that combines Redis (current check-ins), MySQL (registered students), and MongoDB (walk-ins).
+Retrieves live attendance data combining Redis (current check-ins), MySQL (registered students), and MongoDB (walk-ins).
 
 ```graphql
 query GetLiveAttendance {
@@ -153,7 +133,9 @@ query GetLiveAttendance {
 }
 ```
 
-### Mutation 1: Create an Event
+### Mutations
+
+#### Create an Event
 
 This mutation creates a new event with custom fields stored in MongoDB.
 

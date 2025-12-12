@@ -113,6 +113,9 @@ async def root():
 # --------------------------
 @app.get("/students")
 def get_all_students():
+    """
+    MySQL Endpoint to retrieve all students and their information
+    """
     try:
         db = mysql_connect()
         cursor = db.cursor(dictionary=True)
@@ -151,6 +154,9 @@ def get_all_students():
 
 @app.get("/students/{student_id}")
 def get_student_by_id(student_id: int):
+    """
+    MySQL endpoint to retrieve information of a specific student
+    """
     try:
         db = mysql_connect()
         cur = db.cursor(dictionary=True)
@@ -169,6 +175,9 @@ def get_student_by_id(student_id: int):
 # --------------------------
 @app.get("/groups")
 def get_groups():
+    """
+    MySQL endpoint to retrieve all small groups and their information
+    """
     try:
         db = mysql_connect()
         cursor = db.cursor(dictionary=True)
@@ -194,7 +203,9 @@ def get_groups():
 # --------------------------
 @app.post("/events")
 def create_event(event_data: dict = Body(...)):
-    """Creates a new event. eventID is auto-generated."""
+    """
+    MongoDB endpoint to create an event with custom fields (if any)
+    """
     if "eventID" in event_data:
         del event_data["eventID"]
     db = mysql_connect()
@@ -231,6 +242,9 @@ def create_event(event_data: dict = Body(...)):
 
 @app.get("/events")
 def get_all_events():
+    """
+    MySQL endpoint to retrieve all events and their information
+    """
     try:
         db = mysql_connect()
         cursor = db.cursor(dictionary=True)
@@ -256,6 +270,9 @@ def get_all_events():
 
 @app.get("/events/{event_id}")
 def get_event_data(event_id: int):
+    """
+    MongoDB endpoint to retrieve information of a specific event
+    """
     db = mysql_connect()
     cursor = db.cursor(dictionary=True)
     cursor.execute("""
@@ -274,9 +291,11 @@ def get_event_data(event_id: int):
 
 @app.api_route("/events/{event_id}", methods=["PUT"])
 def update_event(event_id: int, event_data: Dict[str, Any] = Body(...)):
+    """
+    MongoDB endpoint to update a specific event
+    """
     db = mysql_connect()
     cursor = db.cursor(dictionary=True)
-    
     try:
         cursor.execute("SELECT eventID FROM Event WHERE eventID=%s;", (event_id,))
         if not cursor.fetchone():
@@ -320,6 +339,9 @@ def update_event(event_id: int, event_data: Dict[str, Any] = Body(...)):
 
 @app.api_route("/events/{event_id}", methods=["DELETE"])
 def delete_event(event_id: int):
+    """
+    MongoDB endpoint to delete a specific event
+    """
     db = mysql_connect()
     cursor = db.cursor(dictionary=True)
     try:
@@ -347,7 +369,9 @@ def delete_event(event_id: int):
 # --------------------------
 @app.get("/attendance/{student_id}")
 def get_student_attendance_history(student_id: int):
-    """Returns attendance history for a specific student"""
+    """
+    MongoDB endpoint to retrieve attendance history for a specific student
+    """
     db = mysql_connect()
     cursor = db.cursor(dictionary=True)
     try:
@@ -436,12 +460,14 @@ def get_student_attendance_history(student_id: int):
 # -----------
 # ATTENDANCE 
 # -----------
-
 CHECKED_IN_KEY = lambda eid: f"event:{eid}:checkedIn"
 ATTENDEES_KEY = lambda eid: f"event:{eid}:attendees"
 
 @app.post("/events/{event_id}/checkin/{student_id}")
 def check_in(event_id: int, student_id: int):
+    """
+    Redis endpoint to check a specific student into a specific event
+    """
     db = mysql_connect()
     cur = db.cursor(dictionary=True)
     cur.execute("SELECT eventID FROM Event WHERE eventID=%s;", (event_id,))
@@ -459,6 +485,9 @@ def check_in(event_id: int, student_id: int):
 
 @app.post("/events/{event_id}/checkout/{student_id}")
 def check_out(event_id: int, student_id: int):
+    """
+    Redis endpoint to check a specific student out of a specific event
+    """
     r = get_redis_conn()
     if not r.sismember(CHECKED_IN_KEY(event_id), str(student_id)):
         raise HTTPException(status_code=400, detail="Student is not checked in")
@@ -467,6 +496,9 @@ def check_out(event_id: int, student_id: int):
 
 @app.get("/events/{event_id}/live")
 def live_attendance(event_id: int):
+    """
+    Redis endpoint to retrieve the live attendance of a specific event
+    """
     r = get_redis_conn()
     raw = r.smembers(CHECKED_IN_KEY(event_id))
     ids = sorted(int(x) for x in raw)
@@ -495,6 +527,9 @@ def live_attendance(event_id: int):
 # --------------------------
 @app.post("/events/{event_id}/finalize")
 def finalize_event(event_id: int):
+    """
+    Trifecta endpoint to finalize attendance of a specific event
+    """
     db = mysql_connect()
     cur = db.cursor(dictionary=True)
     cur.execute("SELECT eventID FROM Event WHERE eventID=%s;", (event_id,))
@@ -550,6 +585,9 @@ def finalize_event(event_id: int):
 @app.get("/events/{event_id}/finalized")
 @app.get("/events/{event_id}/attendance")
 def get_finalized_attendance_view(event_id: int):
+    """
+    Trifecta endpoint to retrieve finalize attendance of a specific event
+    """
     db = mysql_connect()
     cur = db.cursor(dictionary=True)
     cur.execute("SELECT eventID, name, date, time FROM Event WHERE eventID=%s;", (event_id,))
@@ -643,6 +681,9 @@ def get_finalized_attendance_view(event_id: int):
 # --------------------------
 @app.get("/students/{student_id}/registrations")
 def get_student_registrations(student_id: int):
+    """
+    MySQL endpoint to retrieve registration statuses for a specific student
+    """
     db = mysql_connect()
     cursor = db.cursor(dictionary=True)
     try:
@@ -668,6 +709,9 @@ def get_student_registrations(student_id: int):
 
 @app.post("/students/{student_id}/registrations/{event_id}")
 def register_student(student_id: int, event_id: int):
+    """
+    MySQL endpoint to register a specific student for a specific event
+    """
     db = mysql_connect()
     cursor = db.cursor(dictionary=True)
     try:
@@ -703,6 +747,9 @@ def register_student(student_id: int, event_id: int):
 
 @app.delete("/students/{student_id}/registrations/{event_id}")
 def unregister_student(student_id: int, event_id: int):
+    """
+    MySQL endpoint to unregister a specific student from a specific event
+    """
     db = mysql_connect()
     cursor = db.cursor(dictionary=True)
     try:

@@ -153,25 +153,6 @@ query GetLiveAttendance {
 }
 ```
 
----
-
-### Query 4: Get Finalized Attendance
-
-This query retrieves finalized attendance data that combines MySQL (registered attendees) and MongoDB (walk-ins) after an event has been finalized.
-
-```graphql
-query GetFinalizedAttendance {
-  finalizedAttendance(eventId: 1) {
-    eventID
-    totalAttendees
-    totalRegistered
-    totalWalkIns
-  }
-}
-```
-
----
-
 ### Mutation 1: Create an Event
 
 This mutation creates a new event with custom fields stored in MongoDB.
@@ -194,42 +175,6 @@ mutation CreateEvent {
     date
     time
     customFields
-  }
-}
-```
-
----
-
-### Mutation 2: Check In a Student
-
-This mutation checks in a student for an event.
-
-```graphql
-mutation CheckInStudent {
-  checkIn(eventId: 1, studentId: 1) {
-    message
-    eventID
-    studentID
-  }
-}
-```
-
----
-
-### Mutation 3: Finalize an Event
-
-This mutation finalizes an event, moving attendance data from Redis to permanent storage in MySQL (registered attendees) and MongoDB (walk-ins).
-
-```graphql
-mutation FinalizeEvent {
-  finalizeEvent(eventId: 1) {
-    message
-    eventID
-    totalRegistered
-    totalWalkIns
-    totalAttendees
-    registeredSaved
-    walkInsLogged
   }
 }
 ```
